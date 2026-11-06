@@ -164,3 +164,19 @@
 }
 .concluded { text-align: center; padding-top: 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .concluded img { width: 150px; height: auto; }
+
+/* prossima serata */
+.next-event-btn {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; margin-bottom: 14px;
+  padding: 14px 16px; border-radius: var(--radius); border: 2px dashed var(--orange); background: #fff7ec; color: var(--ink);
+}
+.next-event-btn strong { display: block; font-family: 'Fredoka', sans-serif; font-size: 1.05rem; }
+.next-event-btn small { color: var(--ink-2); font-size: 0.82rem; }
+.next-event-plus {
+  flex: 0 0 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--orange); color: #fff; font-size: 1.6rem; font-weight: 700;
+}
+.history summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pill--open { background: #dff2da; color: #2c6e27; }
+.pill--closed { background: #fde3cf; color: #9b4a14; }
+.pill--concluded { background: #ece9e4; color: #6b6259; }

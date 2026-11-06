@@ -56,12 +56,13 @@ let pin = 'asinella'
 
 function assert(p: string) { if (p !== pin) throw new Error('PIN admin errato') }
 const today = () => ymd(new Date())
+const isOpenEv = (e: EventRow) => !e.closed && new Date(e.deadline) > new Date()
 
 export const demo = {
   subscribe(cb: () => void) { listeners.add(cb); return () => { listeners.delete(cb) } },
   currentEvent: async () => {
     const sorted = [...events].sort((a, b) => a.event_date.localeCompare(b.event_date))
-    return sorted.find((e) => e.event_date >= today()) ?? sorted.at(-1) ?? null
+    return sorted.find(isOpenEv) ?? sorted.find((e) => e.event_date >= today()) ?? sorted.at(-1) ?? null
   },
   events: async () => [...events].sort((a, b) => b.event_date.localeCompare(a.event_date)),
   ingredients: async (ev: string) => ingredients.filter((i) => i.event_id === ev).sort((a, b) => a.sort - b.sort),
@@ -103,7 +104,7 @@ export const demo = {
   },
   createEvent: async (p: string, date: string, deadline: string, ids: string[]) => {
     assert(p)
-    if (events.some((e) => e.event_date >= today())) throw new Error("C'è già una serata in corso: potrai crearne una nuova quando sarà conclusa")
+    if (events.some(isOpenEv)) throw new Error("C'è già una serata con gli ordini aperti: chiudi gli ordini prima di crearne una nuova")
     const ev = { id: uid(), event_date: date, deadline, closed: false, created_at: now() }
     events.push(ev)
     setEventIngredients(ev.id, ids)

@@ -10,10 +10,15 @@ function unwrap<T>(res: { data: unknown; error: { message: string } | null }): T
   return res.data as T
 }
 
-/** Serata corrente: la prima con data >= oggi, altrimenti l'ultima (conclusa). */
+/** Serata corrente: quella con ordini aperti; altrimenti la prima con data >= oggi; altrimenti l'ultima (conclusa). */
 export async function fetchCurrentEvent(): Promise<EventRow | null> {
   if (DEMO) return demo.currentEvent()
   const now = new Date()
+  const open = unwrap<EventRow[]>(
+    await supabase.from('events').select('*').eq('closed', false).gt('deadline', now.toISOString())
+      .order('event_date').limit(1),
+  )
+  if (open.length) return open[0]
   const iso = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
   const upcoming = unwrap<EventRow[]>(
     await supabase.from('events').select('*').gte('event_date', iso).order('event_date').limit(1),

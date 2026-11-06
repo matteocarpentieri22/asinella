@@ -40,20 +40,41 @@ export function EventTab({ pin, event, ingredients, orders, players, catalog, ru
     fetchEvents().then(setHistory).catch(() => {})
   }, [event?.id, event?.event_date, phase])
 
-  const past = history.filter((e) => eventPhase(e, now) === 'concluded')
+  const [showNext, setShowNext] = useState(false)
+  useEffect(() => { setShowNext(false) }, [event?.id])
+  const others = history.filter((e) => e.id !== event?.id)
+  const latest = history[0] ?? event
 
   return (
     <div className="event-tab">
-      {event && phase !== 'concluded' ? (
+      {event && phase !== 'concluded' && (
         <CurrentEvent pin={pin} event={event} phase={phase!} now={now} ingredients={ingredients} orders={orders}
           players={players} catalog={catalog} run={run} flash={flash} onError={onError} reload={reload} />
-      ) : (
-        <NewEvent pin={pin} catalog={catalog} lastEvent={past[0] ?? null} run={run} onError={onError} reload={reload} />
       )}
-      {past.length > 0 && (
+
+      {(!event || phase === 'concluded') && (
+        <NewEvent pin={pin} catalog={catalog} lastEvent={latest ?? null} run={run} onError={onError} reload={reload} />
+      )}
+
+      {event && phase === 'closed' && (
+        showNext ? (
+          <NewEvent pin={pin} catalog={catalog} lastEvent={latest ?? null} run={run} onError={onError} reload={reload}
+            title="Prossima serata" onCancel={() => setShowNext(false)} />
+        ) : (
+          <motion.button className="next-event-btn" onClick={() => setShowNext(true)} whileTap={{ scale: 0.98 }}>
+            <span className="next-event-plus">+</span>
+            <span>
+              <strong>Crea la prossima serata</strong>
+              <small>Gli ordini di questa sono chiusi: puoi già aprire la successiva</small>
+            </span>
+          </motion.button>
+        )
+      )}
+
+      {others.length > 0 && (
         <section className="card">
-          <h3>Serate concluse</h3>
-          {past.map((e) => <HistoryItem key={e.id} event={e} players={players} flash={flash} />)}
+          <h3>Altre serate</h3>
+          {others.map((e) => <HistoryItem key={e.id} event={e} players={players} flash={flash} />)}
         </section>
       )}
     </div>
@@ -169,10 +190,18 @@ function CurrentEvent({ pin, event, phase, now, ingredients, orders, players, ca
 
 /* ---------------- nuova serata ---------------- */
 
-function NewEvent({ pin, catalog, lastEvent, run, onError, reload }: {
+function NewEvent({ pin, catalog, lastEvent, run, onError, reload, title = 'Nuova serata', onCancel }: {
   pin: string; catalog: CatalogItem[]; lastEvent: EventRow | null; run: Run; onError: (m: string) => void; reload: () => Promise<void>
+  title?: string; onCancel?: () => void
 }) {
-  const firstDate = ymd(nextThursday())
+  // proposta: il giovedì dopo l'ultima serata (o il prossimo, se l'ultima è già passata)
+  const firstDate = useMemo(() => {
+    const today = new Date()
+    if (!lastEvent) return ymd(nextThursday(today))
+    const [y, m, d] = lastEvent.event_date.split('-').map(Number)
+    const after = new Date(y, m - 1, d + 1)
+    return ymd(nextThursday(after > today ? after : today))
+  }, [lastEvent])
   const [date, setDate] = useState(firstDate)
   const [deadline, setDeadline] = useState(toLocalInput(defaultDeadline(firstDate)))
   const [sel, setSel] = useState<string[]>([])
@@ -186,8 +215,13 @@ function NewEvent({ pin, catalog, lastEvent, run, onError, reload }: {
 
   return (
     <section className="card new-event">
-      <span className="eyebrow">Nessuna serata in corso</span>
-      <h2>Nuova serata</h2>
+      <div className="card-head">
+        <div>
+          <span className="eyebrow">{onCancel ? 'Ordini chiusi' : 'Nessuna serata in corso'}</span>
+          <h2>{title}</h2>
+        </div>
+        {onCancel && <button className="iconbtn" aria-label="Chiudi" onClick={onCancel}>×</button>}
+      </div>
       <div className="form">
         <label>
           Giorno della serata
@@ -284,7 +318,10 @@ function HistoryItem({ event, players, flash }: { event: EventRow; players: Play
     <details className="history" onToggle={(e) => {
       if ((e.target as HTMLDetailsElement).open && !orders) fetchOrders(event.id).then(setOrders).catch(() => setOrders([]))
     }}>
-      <summary>{formatEventDate(event.event_date)}</summary>
+      <summary>
+        {formatEventDate(event.event_date)}
+        <span className={'pill pill--' + eventPhase(event)}>{({ open: 'Aperta', closed: 'Ordini chiusi', concluded: 'Conclusa' } as const)[eventPhase(event)]}</span>
+      </summary>
       {!orders ? <div className="spinner spinner--sm" /> : (
         <>
           <SendToAsinella event={event} orders={orders} players={players} flash={flash} />
