@@ -31,14 +31,14 @@ export function IngredientPicker({ pin, catalog, selected, onChange, lastSelecti
       <div className="picker-tools">
         <input className="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca nella dispensa…" />
         {lastSelection && lastSelection.length > 0 && (
-          <button type="button" className="btn btn--sm" onClick={() => onChange(lastSelection.filter((id) => catalog.some((c) => c.id === id && !c.archived)))}>
+          <button type="button" className="btn btn--sm" onClick={() => onChange(lastSelection.filter((id) => catalog.some((c) => c.id === id)))}>
             Come l'ultima volta
           </button>
         )}
       </div>
       {CATS.map((cat) => {
         const items = catalog
-          .filter((c) => c.category === cat.key && (!c.archived || selected.includes(c.id)))
+          .filter((c) => c.category === cat.key)
           .filter((c) => !query || c.name.toLowerCase().includes(query))
         const ids = items.map((c) => c.id)
         const n = selected.filter((id) => ids.includes(id)).length

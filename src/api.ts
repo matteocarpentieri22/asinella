@@ -125,6 +125,19 @@ export async function adminDeleteOrder(pin: string, id: string) {
   unwrap(await supabase.rpc('admin_delete_order', { p_pin: pin, p_id: id }))
 }
 
+export async function adminCatalogDelete(pin: string, id: string) {
+  if (DEMO) return demo.catalogDelete(pin, id)
+  unwrap(await supabase.rpc('admin_catalog_delete', { p_pin: pin, p_id: id }))
+}
+export async function adminGetSettings(pin: string): Promise<Record<string, string | null>> {
+  if (DEMO) return demo.getSettings(pin)
+  return unwrap(await supabase.rpc('admin_get_settings', { p_pin: pin }))
+}
+export async function adminSetSetting(pin: string, key: string, value: string) {
+  if (DEMO) return demo.setSetting(pin, key, value)
+  unwrap(await supabase.rpc('admin_set_setting', { p_pin: pin, p_key: key, p_value: value }))
+}
+
 // ---------- immagini ingredienti (Gemini) ----------
 export async function fetchIngredientImages(): Promise<IngredientImage[]> {
   if (DEMO) return []

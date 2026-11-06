@@ -7,7 +7,7 @@ import type { CatalogItem, EventRow, Ingredient, Order, Player } from './types'
 import Login from './screens/Login'
 import Composer from './screens/Composer'
 import OrdersList from './screens/OrdersList'
-import Admin from './screens/Admin'
+import Admin, { PIN_KEY } from './screens/Admin'
 
 type Route = 'home' | 'ordini' | 'admin'
 
@@ -83,6 +83,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const isAdminDevice = !!(localStorage.getItem(PIN_KEY) || sessionStorage.getItem(PIN_KEY))
   const go = (r: Route) => { window.location.hash = r === 'home' ? '/' : '/' + r }
 
   const login = (p: Player) => {
@@ -104,7 +105,7 @@ export default function App() {
       </div>
     )
   } else if (route === 'admin') {
-    body = <Admin event={event} ingredients={ingredients} orders={orders} players={players} images={images} catalog={catalog} reload={reload} />
+    body = <Admin event={event} ingredients={ingredients} orders={orders} players={players} images={images} catalog={catalog} reload={reload} me={player} onGoHome={() => go('home')} />
   } else if (!player) {
     body = <Login onLogin={login} />
   } else if (loading) {
@@ -137,6 +138,7 @@ export default function App() {
         <nav className="topnav">
           {player && route !== 'admin' && (
             <>
+              {isAdminDevice && <button className="navbtn navbtn--admin" onClick={() => go('admin')}>Admin</button>}
               <button className={'navbtn' + (route === 'ordini' ? ' is-active' : '')} onClick={() => go(route === 'ordini' ? 'home' : 'ordini')}>
                 {route === 'ordini' ? 'La mia' : `Ordini${orders.length ? ` · ${orders.length}` : ''}`}
               </button>
@@ -146,7 +148,7 @@ export default function App() {
               </button>
             </>
           )}
-          {route === 'admin' && <button className="navbtn" onClick={() => go('home')}>Esci da admin</button>}
+          {route === 'admin' && <button className="navbtn" onClick={() => go('home')}>{player ? 'La mia piadina' : 'App'}</button>}
         </nav>
       </header>
       {loadError && <div className="toast toast--error">Errore di connessione: {loadError}</div>}

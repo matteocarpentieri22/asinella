@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useState } from 'react'
-import { adminCatalogAdd, adminCatalogUpdate, adminDeleteIngredientImage } from '../../api'
+import { adminCatalogAdd, adminCatalogDelete, adminCatalogUpdate, adminDeleteIngredientImage } from '../../api'
 import { nameKey, type ImageMap } from '../../piadina/images'
 import type { CatalogItem, Category } from '../../types'
 import { AiImage } from './AiImage'
@@ -14,10 +14,8 @@ export function PantryTab({ pin, catalog, images, run, onError, reload }: {
   onError: (m: string) => void; reload: () => Promise<void>
 }) {
   const { gen, status } = useGen()
-  const [showArchived, setShowArchived] = useState(false)
   const [edit, setEdit] = useState<CatalogItem | null>(null)
-  const active = catalog.filter((c) => !c.archived)
-  const archived = catalog.filter((c) => c.archived)
+  const active = catalog
   const missing = active.filter((c) => images.get(nameKey(c.name))?.status !== 'ok' && status(c.name) === 'idle')
 
   return (
@@ -37,14 +35,14 @@ export function PantryTab({ pin, catalog, images, run, onError, reload }: {
       </section>
 
       {CATS.map((cat) => {
-        const items = (showArchived ? catalog : active).filter((c) => c.category === cat.key)
+        const items = active.filter((c) => c.category === cat.key)
         return (
           <section key={cat.key} className="card">
             <h3 className="pantry-cat">{cat.label} <span className="muted small">{items.length}</span></h3>
             <div className="tiles">
               <AnimatePresence initial={false}>
                 {items.map((c) => (
-                  <motion.button layout key={c.id} className={'tile' + (c.archived ? ' is-archived' : '')} onClick={() => setEdit(c)}
+                  <motion.button layout key={c.id} className="tile" onClick={() => setEdit(c)}
                     initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}>
                     <AiImage name={c.name} category={c.category} />
                     <span className="tile-name">{c.name}</span>
@@ -67,24 +65,21 @@ export function PantryTab({ pin, catalog, images, run, onError, reload }: {
         )
       })}
 
-      {archived.length > 0 && (
-        <button className="linkbtn" onClick={() => setShowArchived((v) => !v)}>
-          {showArchived ? 'Nascondi archiviati' : `Mostra archiviati (${archived.length})`}
-        </button>
-      )}
 
       {edit && (
         <EditIngredient item={catalog.find((c) => c.id === edit.id) ?? edit} images={images} onClose={() => setEdit(null)}
-          onSave={(name, category, arch) => run(() => adminCatalogUpdate(pin, edit.id, name, category, arch), 'Salvato')}
+          onSave={(name, category) => run(() => adminCatalogUpdate(pin, edit.id, name, category, false), 'Salvato')}
+          onDelete={() => run(() => adminCatalogDelete(pin, edit.id), 'Ingrediente eliminato')}
           onUseDrawing={(n) => run(() => adminDeleteIngredientImage(pin, nameKey(n)), 'Torno al disegno')} />
       )}
     </div>
   )
 }
 
-function EditIngredient({ item, images, onClose, onSave, onUseDrawing }: {
+function EditIngredient({ item, images, onClose, onSave, onDelete, onUseDrawing }: {
   item: CatalogItem; images: ImageMap; onClose: () => void
-  onSave: (name: string, category: Category, archived: boolean) => Promise<void>
+  onSave: (name: string, category: Category) => Promise<void>
+  onDelete: () => Promise<void>
   onUseDrawing: (name: string) => Promise<void>
 }) {
   const { gen, status } = useGen()
@@ -124,14 +119,16 @@ function EditIngredient({ item, images, onClose, onSave, onUseDrawing }: {
             ))}
           </div>
           {dirty && (
-            <button className="btn btn--primary" onClick={async () => { await onSave(name, category, item.archived); onClose() }}>
+            <button className="btn btn--primary" onClick={async () => { await onSave(name, category); onClose() }}>
               Salva modifiche
             </button>
           )}
         </div>
-        <button className="linkbtn" onClick={async () => { await onSave(item.name, item.category, !item.archived); onClose() }}>
-          {item.archived ? 'Ripristina nella dispensa' : 'Archivia (non comparirà più nelle nuove serate)'}
-        </button>
+        <button className="btn btn--danger btn--block" onClick={async () => {
+          if (!confirm(`Eliminare "${item.name}" dalla dispensa?\n\nSe è nella serata in corso verrà tolto anche da lì. Gli ordini già fatti restano invariati.`)) return
+          await onDelete()
+          onClose()
+        }}>Elimina ingrediente</button>
         <button className="linkbtn" onClick={onClose}>Chiudi</button>
       </motion.div>
     </div>

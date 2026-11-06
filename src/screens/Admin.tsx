@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useCallback, useEffect, useState } from 'react'
-import { adminChangePin, adminCheck } from '../api'
+import { adminChangePin, adminCheck, adminGetSettings, adminSetSetting } from '../api'
 import type { ImageMap } from '../piadina/images'
 import type { CatalogItem, EventRow, Ingredient, Order, Player } from '../types'
 import { AiBanner } from './admin/AiImage'
@@ -8,16 +8,18 @@ import { EventTab } from './admin/EventTab'
 import { GenProvider } from './admin/gen'
 import { PantryTab } from './admin/PantryTab'
 
-const PIN_KEY = 'asinella.adminPin'
+export const PIN_KEY = 'asinella.adminPin'
 type Tab = 'serata' | 'dispensa' | 'impostazioni'
 
 export default function Admin({
-  event, ingredients, orders, players, images, catalog, reload,
+  event, ingredients, orders, players, images, catalog, reload, me, onGoHome,
 }: {
   event: EventRow | null; ingredients: Ingredient[]; orders: Order[]; players: Player[]; images: ImageMap
-  catalog: CatalogItem[]; reload: () => Promise<void>
+  catalog: CatalogItem[]; reload: () => Promise<void>; me: Player | null; onGoHome: () => void
 }) {
-  const [pin, setPin] = useState(() => sessionStorage.getItem(PIN_KEY) || '')
+  // il PIN resta salvato su questo telefono: niente PIN a ogni apertura
+  const [pin, setPin] = useState(() => localStorage.getItem(PIN_KEY) || sessionStorage.getItem(PIN_KEY) || '')
+  const [phone, setPhone] = useState<string | null>(null)
   const [authed, setAuthed] = useState(false)
   const [pinInput, setPinInput] = useState('')
   const [err, setErr] = useState<string | null>(null)
@@ -27,6 +29,9 @@ export default function Admin({
   useEffect(() => {
     if (pin) adminCheck(pin).then(setAuthed).catch(() => setAuthed(false))
   }, [pin])
+  useEffect(() => {
+    if (authed) adminGetSettings(pin).then((s) => setPhone(s.asinella_phone ?? null)).catch(() => {})
+  }, [authed, pin])
 
   const flash = useCallback((t: string) => { setMsg(t); window.setTimeout(() => setMsg(null), 2400) }, [])
   const onError = useCallback((m: string) => setErr(m), [])
@@ -47,7 +52,7 @@ export default function Admin({
         e.preventDefault()
         setErr(null)
         const ok = await adminCheck(pinInput).catch(() => false)
-        if (ok) { sessionStorage.setItem(PIN_KEY, pinInput); setPin(pinInput); setAuthed(true) }
+        if (ok) { localStorage.setItem(PIN_KEY, pinInput); setPin(pinInput); setAuthed(true) }
         else setErr('PIN errato')
       }}>
         <h2>Area admin</h2>
@@ -88,16 +93,21 @@ export default function Admin({
 
         {tab === 'serata' && (
           <EventTab pin={pin} event={event} ingredients={ingredients} orders={orders} players={players} catalog={catalog}
-            run={run} flash={flash} onError={onError} reload={reload} />
+            run={run} flash={flash} onError={onError} reload={reload} phone={phone} onOpenSettings={() => setTab('impostazioni')}
+            me={me} onGoHome={onGoHome} />
         )}
         {tab === 'dispensa' && (
           <PantryTab pin={pin} catalog={catalog} images={images} run={run} onError={onError} reload={reload} />
         )}
         {tab === 'impostazioni' && (
           <>
-            <PinChanger pin={pin} onChanged={(p) => { sessionStorage.setItem(PIN_KEY, p); setPin(p) }} run={run} />
-            <button className="btn btn--block" onClick={() => { sessionStorage.removeItem(PIN_KEY); setAuthed(false); setPin('') }}>
-              Esci dall'area admin
+            <PhoneSetting phone={phone} onSave={(v) => run(async () => { await adminSetSetting(pin, 'asinella_phone', v); setPhone(v.trim() || null) }, 'Numero salvato')} />
+            <PinChanger pin={pin} onChanged={(p) => { localStorage.setItem(PIN_KEY, p); setPin(p) }} run={run} />
+            <button className="btn btn--block" onClick={() => {
+              if (!confirm('Uscire dall\'area admin su questo telefono? Dovrai reinserire il PIN.')) return
+              localStorage.removeItem(PIN_KEY); sessionStorage.removeItem(PIN_KEY); setAuthed(false); setPin('')
+            }}>
+              Esci dall'area admin su questo telefono
             </button>
           </>
         )}
@@ -119,6 +129,21 @@ function PinChanger({ pin, onChanged, run }: {
       }}>
         <input type="password" value={np} onChange={(e) => setNp(e.target.value)} placeholder="Nuovo PIN (min 4)" autoComplete="new-password" />
         <button className="btn btn--primary btn--sm" disabled={np.length < 4}>Salva</button>
+      </form>
+    </section>
+  )
+}
+
+function PhoneSetting({ phone, onSave }: { phone: string | null; onSave: (v: string) => Promise<void> }) {
+  const [v, setV] = useState(phone ?? '')
+  useEffect(() => { setV(phone ?? '') }, [phone])
+  return (
+    <section className="card">
+      <h3>WhatsApp di Asinella</h3>
+      <p className="muted small">Con il numero salvato, a ordini chiusi mandi l'ordine con un tocco. Puoi sempre anche copiare il testo.</p>
+      <form className="add-row" onSubmit={(e) => { e.preventDefault(); onSave(v) }}>
+        <input type="tel" inputMode="tel" value={v} onChange={(e) => setV(e.target.value)} placeholder="es. 333 123 4567" autoComplete="off" />
+        <button className="btn btn--primary btn--sm" disabled={v.trim() === (phone ?? '')}>Salva</button>
       </form>
     </section>
   )

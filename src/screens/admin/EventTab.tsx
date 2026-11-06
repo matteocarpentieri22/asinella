@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
 import {
   adminCreateEvent, adminDeleteEvent, adminDeleteOrder, adminSetEventIngredients, adminUpdateEvent,
@@ -14,6 +14,11 @@ import { IngredientPicker } from './IngredientPicker'
 
 type Run = (fn: () => Promise<unknown>, ok?: string) => Promise<void>
 
+interface Common {
+  pin: string; players: Player[]; catalog: CatalogItem[]; run: Run; flash: (t: string) => void
+  onError: (m: string) => void; reload: () => Promise<void>; phone: string | null; onOpenSettings: () => void
+}
+
 function useNow(ms = 1000) {
   const [now, setNow] = useState(Date.now())
   useEffect(() => {
@@ -28,38 +33,39 @@ function defaultDeadline(eventDate: string) {
   return new Date(y, m - 1, d - 1, 22, 0).toISOString()
 }
 
-export function EventTab({ pin, event, ingredients, orders, players, catalog, run, flash, onError, reload }: {
-  pin: string; event: EventRow | null; ingredients: Ingredient[]; orders: Order[]; players: Player[]; catalog: CatalogItem[]
-  run: Run; flash: (t: string) => void; onError: (m: string) => void; reload: () => Promise<void>
+/** Numero italiano → formato internazionale per wa.me */
+export function waNumber(phone: string | null) {
+  if (!phone) return null
+  let d = phone.replace(/\D/g, '')
+  if (d.startsWith('00')) d = d.slice(2)
+  if (d.length === 10 && /^[03]/.test(d)) d = '39' + d
+  return d.length >= 8 ? d : null
+}
+
+export function EventTab({ event, ingredients, orders, me, onGoHome, ...c }: Common & {
+  event: EventRow | null; ingredients: Ingredient[]; orders: Order[]; me: Player | null; onGoHome: () => void
 }) {
   const now = useNow()
   const phase = event ? eventPhase(event, now) : null
   const [history, setHistory] = useState<EventRow[]>([])
-
-  useEffect(() => {
-    fetchEvents().then(setHistory).catch(() => {})
-  }, [event?.id, event?.event_date, phase])
-
   const [showNext, setShowNext] = useState(false)
+
+  useEffect(() => { fetchEvents().then(setHistory).catch(() => {}) }, [event?.id, event?.event_date, phase])
   useEffect(() => { setShowNext(false) }, [event?.id])
+
   const others = history.filter((e) => e.id !== event?.id)
   const latest = history[0] ?? event
 
   return (
     <div className="event-tab">
       {event && phase !== 'concluded' && (
-        <CurrentEvent pin={pin} event={event} phase={phase!} now={now} ingredients={ingredients} orders={orders}
-          players={players} catalog={catalog} run={run} flash={flash} onError={onError} reload={reload} />
-      )}
-
-      {(!event || phase === 'concluded') && (
-        <NewEvent pin={pin} catalog={catalog} lastEvent={latest ?? null} run={run} onError={onError} reload={reload} />
+        <CurrentEvent {...c} event={event} phase={phase!} now={now} ingredients={ingredients} orders={orders}
+          me={me} onGoHome={onGoHome} />
       )}
 
       {event && phase === 'closed' && (
         showNext ? (
-          <NewEvent pin={pin} catalog={catalog} lastEvent={latest ?? null} run={run} onError={onError} reload={reload}
-            title="Prossima serata" onCancel={() => setShowNext(false)} />
+          <NewEvent {...c} lastEvent={latest ?? null} title="Prossima serata" onCancel={() => setShowNext(false)} />
         ) : (
           <motion.button className="next-event-btn" onClick={() => setShowNext(true)} whileTap={{ scale: 0.98 }}>
             <span className="next-event-plus">+</span>
@@ -71,10 +77,12 @@ export function EventTab({ pin, event, ingredients, orders, players, catalog, ru
         )
       )}
 
+      {(!event || phase === 'concluded') && <NewEvent {...c} lastEvent={latest ?? null} />}
+
       {others.length > 0 && (
         <section className="card">
           <h3>Altre serate</h3>
-          {others.map((e) => <HistoryItem key={e.id} event={e} players={players} flash={flash} />)}
+          {others.map((e) => <HistoryItem key={e.id} event={e} players={c.players} flash={c.flash} phone={c.phone} />)}
         </section>
       )}
     </div>
@@ -83,9 +91,10 @@ export function EventTab({ pin, event, ingredients, orders, players, catalog, ru
 
 /* ---------------- serata in corso ---------------- */
 
-function CurrentEvent({ pin, event, phase, now, ingredients, orders, players, catalog, run, flash, onError, reload }: {
-  pin: string; event: EventRow; phase: 'open' | 'closed'; now: number; ingredients: Ingredient[]; orders: Order[]
-  players: Player[]; catalog: CatalogItem[]; run: Run; flash: (t: string) => void; onError: (m: string) => void; reload: () => Promise<void>
+function CurrentEvent({ pin, event, phase, now, ingredients, orders, players, catalog, run, flash, onError, reload, phone,
+  onOpenSettings, me, onGoHome }: Common & {
+  event: EventRow; phase: 'open' | 'closed'; now: number; ingredients: Ingredient[]; orders: Order[]
+  me: Player | null; onGoHome: () => void
 }) {
   const [editIngr, setEditIngr] = useState(false)
   const [sel, setSel] = useState<string[]>([])
@@ -94,41 +103,77 @@ function CurrentEvent({ pin, event, phase, now, ingredients, orders, players, ca
   useEffect(() => { setDate(event.event_date); setDeadline(toLocalInput(event.deadline)) }, [event.event_date, event.deadline])
   const left = timeLeft(event.deadline, now)
   const dirty = date !== event.event_date || deadline !== toLocalInput(event.deadline)
+  const myOrder = me ? orders.find((o) => o.player_id === me.id) : null
+  const total = Math.max(players.length, orders.length)
+  const pct = total ? Math.round((orders.length / total) * 100) : 0
+
+  const closeOrders = () => {
+    if (confirm(`Chiudere gli ordini di ${formatEventDate(event.event_date)}?\n\nNessuno potrà più ordinare o modificare la piadina.`)) {
+      run(() => adminUpdateEvent(pin, event, event.event_date, event.deadline, true), 'Ordini chiusi')
+    }
+  }
 
   return (
     <>
-      <motion.section layout className={'card event-hero event-hero--' + phase}>
+      {/* riepilogo serata */}
+      <section className={'card event-hero event-hero--' + phase}>
         <div className="event-hero-top">
           <div>
             <span className="eyebrow">{phase === 'open' ? 'Serata in corso' : 'Ordini chiusi'}</span>
             <h2>{formatEventDate(event.event_date)}</h2>
             <p className="small">
-              {phase === 'open' ? <>Si ordina fino a {formatDeadline(event.deadline)}</> : <>Scadenza: {formatDeadline(event.deadline)}{event.closed && ' (chiusi a mano)'}</>}
+              {phase === 'open'
+                ? <>Si ordina fino a {formatDeadline(event.deadline)}</>
+                : <>Scadenza: {formatDeadline(event.deadline)}{event.closed && ' · chiusi a mano'}</>}
             </p>
           </div>
-          <div className="event-hero-stat">
-            {phase === 'open' && left ? <><strong>{left}</strong><span>alla chiusura</span></> : <><strong>{orders.length}</strong><span>piadine</span></>}
-          </div>
-        </div>
-        {phase === 'open' && <p className="small event-hero-count">{orders.length} {orders.length === 1 ? 'piadina ordinata' : 'piadine ordinate'} finora</p>}
-      </motion.section>
-
-      {phase === 'closed' && (
-        <SendToAsinella event={event} orders={orders} players={players} flash={flash} highlight />
-      )}
-
-      <section className="card">
-        <div className="card-head">
-          <h3>Ingredienti della serata <span className="muted small">{ingredients.length}</span></h3>
-          {!editIngr && (
-            <button className="btn btn--sm" onClick={() => {
-              setSel(ingredients.map((i) => i.catalog_id).filter(Boolean) as string[])
-              setEditIngr(true)
-            }}>Modifica</button>
+          {phase === 'open' && left && (
+            <div className="event-hero-stat"><strong>{left}</strong><span>alla chiusura</span></div>
           )}
         </div>
-        {editIngr ? (
+        <div className="hero-progress">
+          <div className="hero-progress-text">
+            <strong>{orders.length}</strong> su {total} {total === 1 ? 'giocatore ha' : 'giocatori hanno'} ordinato
+          </div>
+          <div className="hero-progress-bar"><motion.span initial={false} animate={{ width: `${pct}%` }} /></div>
+        </div>
+        {me && (
+          <button className="hero-me" onClick={onGoHome}>
+            {myOrder
+              ? <>La tua piadina: <strong>{orderLabel(myOrder)}</strong>{phase === 'open' && ' · modifica →'}</>
+              : phase === 'open' ? <><strong>Non hai ancora ordinato la tua piadina</strong> · ordina →</> : <>Non hai ordinato la tua piadina</>}
+          </button>
+        )}
+      </section>
+
+      {/* a ordini chiusi l'azione principale è mandare l'ordine */}
+      {phase === 'closed' && (
+        <SendToAsinella orders={orders} players={players} flash={flash} phone={phone} onOpenSettings={onOpenSettings} highlight />
+      )}
+
+      <OrdersList orders={orders} players={players}
+        onDelete={(o, name) => { if (confirm(`Eliminare l'ordine di ${name}?`)) run(() => adminDeleteOrder(pin, o.id), 'Ordine eliminato') }} />
+
+      {phase === 'open' && orders.length > 0 && (
+        <SendToAsinella orders={orders} players={players} flash={flash} phone={phone} onOpenSettings={onOpenSettings} collapsible />
+      )}
+
+      {/* ingredienti: una riga compatta */}
+      <section className="card ingr-row-card">
+        {!editIngr ? (
+          <button className="ingr-row" onClick={() => {
+            setSel(ingredients.map((i) => i.catalog_id).filter(Boolean) as string[])
+            setEditIngr(true)
+          }}>
+            <span className="ingr-row-icons">
+              {ingredients.slice(0, 6).map((i) => <IngredientIcon key={i.id} name={i.name} category={i.category} />)}
+            </span>
+            <span className="ingr-row-text"><strong>{ingredients.length} ingredienti</strong><small>Tocca per modificare</small></span>
+            <span className="ingr-row-go">›</span>
+          </button>
+        ) : (
           <>
+            <div className="card-head"><h3>Ingredienti della serata</h3><span className="muted small">{sel.length} scelti</span></div>
             <IngredientPicker pin={pin} catalog={catalog} selected={sel} onChange={setSel} onError={onError} reload={reload} />
             <div className="row sticky-actions">
               <button className="btn" onClick={() => setEditIngr(false)}>Annulla</button>
@@ -138,20 +183,8 @@ function CurrentEvent({ pin, event, phase, now, ingredients, orders, players, ca
               }}>Salva ({sel.length})</button>
             </div>
           </>
-        ) : (
-          <div className="chips">
-            {ingredients.map((i) => (
-              <span key={i.id} className="chip chip--static"><IngredientIcon name={i.name} category={i.category} />{i.name}</span>
-            ))}
-            {!ingredients.length && <span className="muted small">Nessun ingrediente: tocca Modifica</span>}
-          </div>
         )}
       </section>
-
-      {phase === 'open' && <SendToAsinella event={event} orders={orders} players={players} flash={flash} />}
-
-      <OrdersList orders={orders} players={players}
-        onDelete={(o, name) => { if (confirm(`Eliminare l'ordine di ${name}?`)) run(() => adminDeleteOrder(pin, o.id), 'Ordine eliminato') }} />
 
       <details className="card">
         <summary><strong>Modifica serata</strong></summary>
@@ -170,17 +203,19 @@ function CurrentEvent({ pin, event, phase, now, ingredients, orders, players, ca
             </button>
           )}
           <div className="row">
-            <button className="btn" onClick={() => run(
-              () => adminUpdateEvent(pin, event, event.event_date, event.deadline, !event.closed),
-              event.closed ? 'Ordini riaperti' : 'Ordini chiusi')}>
-              {event.closed ? 'Riapri ordini' : 'Chiudi ordini ora'}
-            </button>
+            {event.closed ? (
+              <button className="btn" onClick={() => run(() => adminUpdateEvent(pin, event, event.event_date, event.deadline, false), 'Ordini riaperti')}>
+                Riapri ordini
+              </button>
+            ) : phase === 'open' && (
+              <button className="btn" onClick={closeOrders}>Chiudi ordini ora</button>
+            )}
             <button className="btn btn--danger" onClick={() => {
               if (confirm('Eliminare questa serata con tutti i suoi ordini?')) run(() => adminDeleteEvent(pin, event.id), 'Serata eliminata')
             }}>Elimina serata</button>
           </div>
           {!event.closed && phase === 'closed' && (
-            <p className="muted small">La scadenza è passata: per riaprire sposta più avanti la data di scadenza.</p>
+            <p className="muted small">La scadenza è passata: per riaprire gli ordini sposta più avanti la scadenza.</p>
           )}
         </div>
       </details>
@@ -190,9 +225,8 @@ function CurrentEvent({ pin, event, phase, now, ingredients, orders, players, ca
 
 /* ---------------- nuova serata ---------------- */
 
-function NewEvent({ pin, catalog, lastEvent, run, onError, reload, title = 'Nuova serata', onCancel }: {
-  pin: string; catalog: CatalogItem[]; lastEvent: EventRow | null; run: Run; onError: (m: string) => void; reload: () => Promise<void>
-  title?: string; onCancel?: () => void
+function NewEvent({ pin, catalog, lastEvent, run, onError, reload, title = 'Nuova serata', onCancel }: Common & {
+  lastEvent: EventRow | null; title?: string; onCancel?: () => void
 }) {
   // proposta: il giovedì dopo l'ultima serata (o il prossimo, se l'ultima è già passata)
   const firstDate = useMemo(() => {
@@ -253,24 +287,45 @@ function NewEvent({ pin, catalog, lastEvent, run, onError, reload, title = 'Nuov
 
 /* ---------------- ordini e invio ad Asinella ---------------- */
 
-function SendToAsinella({ event, orders, players, flash, highlight = false }: {
-  event: EventRow; orders: Order[]; players: Player[]; flash: (t: string) => void; highlight?: boolean
+function SendToAsinella({ orders, players, flash, phone, onOpenSettings, highlight = false, collapsible = false }: {
+  orders: Order[]; players: Player[]; flash: (t: string) => void; phone: string | null; onOpenSettings?: () => void
+  highlight?: boolean; collapsible?: boolean
 }) {
+  const [open, setOpen] = useState(!collapsible)
   const text = asinellaText(orders, players)
+  const wa = waNumber(phone)
   if (!orders.length) {
-    return highlight ? <section className="card send-card"><h3>Nessun ordine per {formatEventDate(event.event_date)}</h3></section> : null
+    return highlight ? <section className="card send-card"><h3>Nessun ordine per questa serata</h3></section> : null
   }
   const copy = async () => {
-    try { await navigator.clipboard.writeText(text); flash('Copiato! Incollalo su WhatsApp') } catch { flash('Copia non riuscita, seleziona il testo a mano') }
+    try { await navigator.clipboard.writeText(text); flash('Testo copiato: incollalo dove vuoi') } catch { flash('Copia non riuscita, seleziona il testo a mano') }
   }
   return (
     <section className={'card send-card' + (highlight ? ' send-card--hl' : '')}>
-      <h3>{highlight ? "Manda l'ordine ad Asinella" : 'Riepilogo per Asinella'}</h3>
-      <pre className="summary">{text}</pre>
-      <div className="row">
-        <button className="btn btn--primary" onClick={copy}>Copia per Asinella</button>
-        <a className="btn" href={`https://wa.me/?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer">Apri WhatsApp</a>
-      </div>
+      <button className="send-head" onClick={() => collapsible && setOpen((v) => !v)} aria-expanded={open}>
+        <h3>{highlight ? "Manda l'ordine ad Asinella" : 'Anteprima ordine per Asinella'}</h3>
+        {collapsible && <span className="send-chev">{open ? '−' : '+'}</span>}
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} style={{ overflow: 'hidden' }}>
+            <pre className="summary">{text}</pre>
+            <div className="row">
+              {wa ? (
+                <a className="btn btn--wa" href={`https://wa.me/${wa}?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer">
+                  Invia ad Asinella su WhatsApp
+                </a>
+              ) : null}
+              <button className={'btn' + (wa ? '' : ' btn--primary')} onClick={copy}>Copia testo</button>
+            </div>
+            {!wa && onOpenSettings && (
+              <button className="linkbtn small" onClick={onOpenSettings}>
+                Salva il numero di Asinella per inviarlo con un tocco su WhatsApp
+              </button>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   )
 }
@@ -312,19 +367,20 @@ function OrdersList({ orders, players, onDelete }: {
   )
 }
 
-function HistoryItem({ event, players, flash }: { event: EventRow; players: Player[]; flash: (t: string) => void }) {
+function HistoryItem({ event, players, flash, phone }: { event: EventRow; players: Player[]; flash: (t: string) => void; phone: string | null }) {
   const [orders, setOrders] = useState<Order[] | null>(null)
+  const ph = eventPhase(event)
   return (
     <details className="history" onToggle={(e) => {
       if ((e.target as HTMLDetailsElement).open && !orders) fetchOrders(event.id).then(setOrders).catch(() => setOrders([]))
     }}>
       <summary>
         {formatEventDate(event.event_date)}
-        <span className={'pill pill--' + eventPhase(event)}>{({ open: 'Aperta', closed: 'Ordini chiusi', concluded: 'Conclusa' } as const)[eventPhase(event)]}</span>
+        <span className={'pill pill--' + ph}>{({ open: 'Aperta', closed: 'Ordini chiusi', concluded: 'Conclusa' } as const)[ph]}</span>
       </summary>
       {!orders ? <div className="spinner spinner--sm" /> : (
         <>
-          <SendToAsinella event={event} orders={orders} players={players} flash={flash} />
+          <SendToAsinella orders={orders} players={players} flash={flash} phone={phone} />
           {!orders.length && <p className="muted small">Nessun ordine.</p>}
         </>
       )}

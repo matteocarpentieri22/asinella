@@ -53,6 +53,7 @@ const orders: Order[] = [
   { id: 'o1', event_id: 'ev1', player_id: 'p1', extra: null, notes: 'ben cotta', items: snap('ev1', ['Cotto', 'Provola', 'Zucchine']), created_at: now(), updated_at: now() },
 ]
 let pin = 'asinella'
+const settings: Record<string, string | null> = {}
 
 function assert(p: string) { if (p !== pin) throw new Error('PIN admin errato') }
 const today = () => ymd(new Date())
@@ -132,5 +133,18 @@ export const demo = {
     emit()
     return c
   },
+  catalogDelete: async (p: string, id: string) => {
+    assert(p)
+    const i = catalog.findIndex((c) => c.id === id)
+    if (i >= 0) catalog.splice(i, 1)
+    const todayStr = today()
+    for (let k = ingredients.length - 1; k >= 0; k--) {
+      const ev = events.find((e) => e.id === ingredients[k].event_id)
+      if (ingredients[k].catalog_id === id && ev && ev.event_date >= todayStr) ingredients.splice(k, 1)
+    }
+    emit()
+  },
+  getSettings: async (p: string) => { assert(p); return { ...settings } },
+  setSetting: async (p: string, k: string, v: string) => { assert(p); settings[k] = v.trim() || null },
   deleteOrder: async (p: string, id: string) => { assert(p); orders.splice(orders.findIndex((o) => o.id === id), 1); emit() },
 }
