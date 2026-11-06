@@ -67,7 +67,7 @@ export default function Composer({
   }, [selected, byId, extra])
 
   const tabIngredients = ingredients.filter((i) => i.category === tab)
-  const visibleTabs = CATEGORIES.filter((c) => c.key === 'altro' || ingredients.some((i) => i.category === c.key))
+  const visibleTabs = CATEGORIES
 
   useEffect(() => {
     if (!visibleTabs.some((t) => t.key === tab) && visibleTabs[0]) setTab(visibleTabs[0].key)
@@ -140,7 +140,6 @@ export default function Composer({
       <div className="empty">
         <img src="/logo-256.png" alt="" width={140} height={115} />
         <h2>Nessuna serata in programma</h2>
-        <p className="muted">Quando l'admin carica gli ingredienti della settimana li trovi qui.</p>
       </div>
     )
   }
@@ -151,8 +150,7 @@ export default function Composer({
         <img src="/logo-256.png" alt="" width={150} height={124} />
         <h2>Serata conclusa</h2>
         <p className="muted">
-          Quella di {formatEventDate(event.event_date)} è andata! Ci vediamo al prossimo giovedì:
-          appena l'admin apre la nuova serata la trovi qui.
+          Ci vediamo al prossimo giovedì!
         </p>
         {myOrder && <p className="small muted">La tua ultima piadina: {orderLabel(myOrder)}</p>}
       </div>
@@ -265,7 +263,7 @@ export default function Composer({
         {phase !== 'sending' && !open && !myOrder && (
           <motion.div key="closed" className="card done" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <h2>Questa settimana non hai ordinato</h2>
-            <p className="muted">Gli ordini per {formatEventDate(event.event_date)} sono chiusi. Se è un'emergenza, scrivi all'admin.</p>
+            <p className="muted">Gli ordini per {formatEventDate(event.event_date)} sono chiusi.</p>
             <button className="btn btn--primary" onClick={onShowOrders}>Vedi gli ordini</button>
           </motion.div>
         )}
