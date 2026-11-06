@@ -87,7 +87,7 @@ export default function Composer({
     setError(null)
     setPhase('sending')
     buzz(15)
-    const req = submitOrder(player.id, event.id, selected, extra, notes)
+    const req = submitOrder(player.id, event.id, selected, extra, '')
     const anim = m.close()
     try {
       await Promise.all([req, anim])

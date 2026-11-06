@@ -331,3 +331,13 @@
 .ev-pill--danger { flex: 0 0 auto; background: rgba(120, 20, 10, 0.25); border-color: rgba(255, 200, 190, 0.45); }
 .ev-edit { background: var(--cream); border-bottom: 1px solid var(--line); }
 .ev-edit .form { padding: 14px 16px; }
+
+/* campi data/ora: su iPhone Safari hanno una larghezza minima propria e sbordano */
+.form label { min-width: 0; }
+input[type="date"], input[type="datetime-local"], input[type="time"] {
+  -webkit-appearance: none; appearance: none;
+  display: block; width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box;
+  text-align: left; line-height: 46px; min-height: 48px;
+}
+input[type="date"]::-webkit-date-and-time-value, input[type="datetime-local"]::-webkit-date-and-time-value { text-align: left; }
+.card, .ev-card, .new-event { min-width: 0; max-width: 100%; }

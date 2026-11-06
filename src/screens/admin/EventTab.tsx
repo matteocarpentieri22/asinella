@@ -314,6 +314,13 @@ function NewEvent({ pin, catalog, lastEvent, run, onError, reload, title = 'Nuov
   }, [lastEvent])
   const [date, setDate] = useState(firstDate)
   const [deadline, setDeadline] = useState(toLocalInput(defaultDeadline(firstDate)))
+  // la proposta può cambiare quando arriva lo storico: la seguiamo finché l'admin non tocca la data
+  const dateTouched = useRef(false)
+  useEffect(() => {
+    if (dateTouched.current) return
+    setDate(firstDate)
+    setDeadline(toLocalInput(defaultDeadline(firstDate)))
+  }, [firstDate])
   const [sel, setSel] = useState<string[]>([])
   const [last, setLast] = useState<string[]>([])
   // le salse ci sono sempre: partono già selezionate (si possono togliere)
@@ -344,6 +351,7 @@ function NewEvent({ pin, catalog, lastEvent, run, onError, reload, title = 'Nuov
         <label>
           Giorno della serata
           <input type="date" value={date} onChange={(e) => {
+            dateTouched.current = true
             setDate(e.target.value)
             if (e.target.value) setDeadline(toLocalInput(defaultDeadline(e.target.value)))
           }} />
