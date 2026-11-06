@@ -32,7 +32,7 @@ export default function Login({ onLogin }: { onLogin: (p: Player) => void }) {
         <label>
           Nome
           <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name"
-            autoCapitalize="words" enterKeyHint="go" placeholder="Mario" />
+            autoCapitalize="words" enterKeyHint="go" />
         </label>
         {err && <p className="error">{err}</p>}
         <button className="btn btn--primary btn--block" disabled={busy}>

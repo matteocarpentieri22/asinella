@@ -65,7 +65,7 @@ export default function Admin({
         {!me && (
           <label>
             Nome
-            <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} autoComplete="given-name" autoCapitalize="words" placeholder="Mario" />
+            <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} autoComplete="given-name" autoCapitalize="words" />
           </label>
         )}
         <label>
