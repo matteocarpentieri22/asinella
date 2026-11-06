@@ -1,0 +1,6 @@
+# Configurazione minima per la Supabase CLI (deploy della Edge Function)
+project_id = "asinella"
+
+[functions.generate-ingredient]
+# la funzione controlla il PIN admin da sola; così funziona anche con le nuove "publishable key"
+verify_jwt = false
