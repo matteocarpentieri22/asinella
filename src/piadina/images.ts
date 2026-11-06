@@ -17,7 +17,7 @@ export type ImageMap = Map<string, IngredientImage>
 export const nameKey = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ')
 
 /** Piadina di default generata con Gemini e inclusa nell'app (null = usa il disegno vettoriale) */
-export const PIADINA_IMAGE: string | null = null
+export const PIADINA_IMAGE: string | null = '/piadina.webp'
 
 export const ImagesContext = createContext<ImageMap>(new Map())
 

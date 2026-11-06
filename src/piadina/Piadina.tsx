@@ -72,7 +72,7 @@ export const Dough = memo(function Dough({
 
   // piadina generata da Gemini: stessa immagine per tutte e due le facce (sotto = specchiata, un filo più scura)
   if (piadinaImg) {
-    const P = R + 3
+    const P = R + 1
     return (
       <svg viewBox={viewBox} className="dough" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         <image href={piadinaImg} x={C - P} y={C - P} width={P * 2} height={P * 2} preserveAspectRatio="xMidYMid meet"

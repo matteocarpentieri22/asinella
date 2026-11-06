@@ -216,7 +216,7 @@ async function sauceColor(name: string): Promise<string> {
 async function piadinaRef(origin: string | null): Promise<Ref[]> {
   if (!origin || !/^https?:\/\//.test(origin)) return []
   try {
-    const r = await fetch(new URL('/piadina.png', origin), { signal: AbortSignal.timeout(5000) })
+    const r = await fetch(new URL('/piadina-ref.png', origin), { signal: AbortSignal.timeout(5000) })
     if (!r.ok || !(r.headers.get('content-type') ?? '').includes('image')) return []
     const img = await Image.decode(new Uint8Array(await r.arrayBuffer()))
     const bgImg = new Image(img.width, img.height).fill(0xff00ffff)

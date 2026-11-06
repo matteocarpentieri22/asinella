@@ -92,9 +92,13 @@ async function cutout(buf) {
     const i = (y * w + x) * 4
     const r = data[i], g = data[i + 1], b = data[i + 2]
     const d = Math.hypot(r - br, g - bg, b - bb)
-    const a = d < 70 ? 0 : d > 150 ? 255 : Math.round(((d - 70) / 80) * 255)
-    const spill = Math.min(r, b) - g
-    if (spill > 0 && a < 255) { data[i] = Math.max(0, r - spill * 0.6); data[i + 2] = Math.max(0, b - spill * 0.6) }
+    const a = d < 90 ? 0 : d > 190 ? 255 : Math.round(((d - 90) / 100) * 255)
+    // alone magenta: il blu non dovrebbe mai superare il verde nell'impasto
+    const spill = b - g
+    if (spill > 0) {
+      data[i + 2] = g
+      if (a < 255) data[i] = Math.max(g, r - spill * 0.5)
+    }
     data[i + 3] = a
     if (a > 24) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y) }
   }
@@ -108,6 +112,20 @@ async function cutout(buf) {
     .resize(900, 900, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png({ compressionLevel: 9 })
     .toBuffer()
+}
+
+// node scripts/generate-piadina.mjs --final N  → usa scripts/out/piadina-N-raw.jpg e scrive
+//   public/piadina.webp (app, leggera) e public/piadina-ref.png (riferimento di stile per la Edge Function)
+if (process.argv[2] === '--final') {
+  const n = process.argv[3]
+  const png = await cutout(fs.readFileSync(path.join(OUT, `piadina-${n}-raw.jpg`)))
+  await sharp(png).resize(720).webp({ quality: 80, alphaQuality: 85, effort: 6 }).toFile(path.join(ROOT, 'public', 'piadina.webp'))
+  await sharp(png).resize(512).png({ compressionLevel: 9, palette: true, quality: 90 }).toFile(path.join(ROOT, 'public', 'piadina-ref.png'))
+  fs.writeFileSync(path.join(OUT, `piadina-${n}-final.png`), png)
+  for (const f of ['piadina.webp', 'piadina-ref.png']) {
+    console.log(`public/${f}: ${Math.round(fs.statSync(path.join(ROOT, 'public', f)).size / 1024)} KB`)
+  }
+  process.exit(0)
 }
 
 const count = Math.max(1, Math.min(5, Number(process.argv[2] ?? 3)))
