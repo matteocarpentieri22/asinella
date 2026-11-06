@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useCallback, useEffect, useState } from 'react'
+import { ask } from '../confirm'
 import { adminChangePin, adminCheck, adminGetSettings, adminSetSetting } from '../api'
 import type { ImageMap } from '../piadina/images'
 import type { CatalogItem, EventRow, Ingredient, Order, Player } from '../types'
@@ -103,8 +104,8 @@ export default function Admin({
           <>
             <PhoneSetting phone={phone} onSave={(v) => run(async () => { await adminSetSetting(pin, 'asinella_phone', v); setPhone(v.trim() || null) }, 'Numero salvato')} />
             <PinChanger pin={pin} onChanged={(p) => { localStorage.setItem(PIN_KEY, p); setPin(p) }} run={run} />
-            <button className="btn btn--block" onClick={() => {
-              if (!confirm('Uscire dall\'area admin su questo telefono? Dovrai reinserire il PIN.')) return
+            <button className="btn btn--block" onClick={async () => {
+              if (!await ask({ title: "Uscire dall'area admin?", message: 'Su questo telefono dovrai reinserire il PIN.', confirm: 'Esci', icon: '🔒' })) return
               localStorage.removeItem(PIN_KEY); sessionStorage.removeItem(PIN_KEY); setAuthed(false); setPin('')
             }}>
               Esci dall'area admin su questo telefono

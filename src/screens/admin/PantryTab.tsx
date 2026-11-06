@@ -4,6 +4,7 @@ import { adminCatalogAdd, adminCatalogDelete, adminCatalogUpdate, adminDeleteIng
 import { nameKey, type ImageMap } from '../../piadina/images'
 import type { CatalogItem, Category } from '../../types'
 import { AiImage } from './AiImage'
+import { ask } from '../../confirm'
 import { AddRow, CATS } from './IngredientPicker'
 import { useGen } from './gen'
 
@@ -125,7 +126,7 @@ function EditIngredient({ item, images, onClose, onSave, onDelete, onUseDrawing 
           )}
         </div>
         <button className="btn btn--danger btn--block" onClick={async () => {
-          if (!confirm(`Eliminare "${item.name}" dalla dispensa?\n\nSe è nella serata in corso verrà tolto anche da lì. Gli ordini già fatti restano invariati.`)) return
+          if (!await ask({ title: `Eliminare ${item.name}?`, message: 'Verrà tolto dalla dispensa e dalla serata in corso. Gli ordini già fatti restano invariati.', confirm: 'Elimina', danger: true })) return
           await onDelete()
           onClose()
         }}>Elimina ingrediente</button>

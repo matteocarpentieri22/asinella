@@ -3,6 +3,7 @@ import { DEMO, loginPlayer, fetchCatalog, fetchIngredientImages, fetchCurrentEve
 import { motion } from 'framer-motion'
 import { eventPhase } from './format'
 import { GlobalDefs } from './piadina/art'
+import { ConfirmHost, ask } from './confirm'
 import { ImagesContext, type ImageMap } from './piadina/images'
 import { supabaseConfigured as configured } from './supabase'
 import type { CatalogItem, EventRow, Ingredient, Order, Player } from './types'
@@ -132,6 +133,7 @@ export default function App() {
     <ImagesContext.Provider value={images}>
     <div className="app">
       <GlobalDefs />
+      <ConfirmHost />
       <header className="topbar">
         <button className="brand" onClick={() => go('home')} aria-label="Home">
           <img src="/logo-128.png" alt="" width={40} height={34} />
@@ -141,7 +143,9 @@ export default function App() {
           {player && route !== 'admin' && (
             <>
               {isAdminDevice && <button className="navbtn navbtn--admin" onClick={() => go('admin')}>Admin</button>}
-              <button className="avatar" onClick={() => { if (confirm(`Esci da ${player.first_name} ${player.last_name}?`)) logout() }}
+              <button className="avatar" onClick={async () => {
+                if (await ask({ title: `Esci da ${player.first_name} ${player.last_name}?`, confirm: 'Esci', icon: '👋' })) logout()
+              }}
                 aria-label="Esci">
                 {player.first_name[0]}{player.last_name[0]}
               </button>

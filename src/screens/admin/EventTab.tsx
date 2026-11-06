@@ -11,6 +11,7 @@ import { IngredientIcon } from '../../piadina/IngredientIcon'
 import { asinellaText, orderLabel } from '../../summary'
 import type { CatalogItem, EventRow, Ingredient, Order, Player } from '../../types'
 import { IngredientPicker } from './IngredientPicker'
+import { ask } from '../../confirm'
 
 type Run = (fn: () => Promise<unknown>, ok?: string) => Promise<void>
 
@@ -134,8 +135,8 @@ function CurrentEvent({ pin, event, phase, now, ingredients, orders, players, ca
   const copy = async () => {
     try { await navigator.clipboard.writeText(text); flash('Testo copiato: incollalo dove vuoi') } catch { flash('Copia non riuscita, seleziona il testo a mano') }
   }
-  const closeOrders = () => {
-    if (confirm(`Chiudere gli ordini di ${formatEventDate(event.event_date)}?\n\nNessuno potrà più ordinare o modificare la piadina.`)) {
+  const closeOrders = async () => {
+    if (await ask({ title: 'Chiudere gli ordini?', message: `${formatEventDate(event.event_date)}: nessuno potrà più ordinare o modificare la piadina.`, confirm: 'Chiudi ordini', icon: '🔒' })) {
       run(() => adminUpdateEvent(pin, event, event.event_date, event.deadline, true), 'Ordini chiusi')
     }
   }
@@ -199,7 +200,7 @@ function CurrentEvent({ pin, event, phase, now, ingredients, orders, players, ca
         <div className="ev-rows">
           <Row title="Ordini" count={orders.length} open={openRow === 'ordini'} onToggle={() => toggle('ordini')}>
             <OrdersList orders={orders} players={players}
-              onDelete={(o, name) => { if (confirm(`Eliminare l'ordine di ${name}?`)) run(() => adminDeleteOrder(pin, o.id), 'Ordine eliminato') }} />
+              onDelete={async (o, name) => { if (await ask({ title: `Eliminare l'ordine di ${name}?`, confirm: 'Elimina', danger: true })) run(() => adminDeleteOrder(pin, o.id), 'Ordine eliminato') }} />
           </Row>
 
           <Row title="Testo per Asinella" open={openRow === 'testo'} onToggle={() => toggle('testo')}>
@@ -263,8 +264,8 @@ function CurrentEvent({ pin, event, phase, now, ingredients, orders, players, ca
                 ) : phase === 'open' && (
                   <button className="btn" onClick={closeOrders}>Chiudi ordini ora</button>
                 )}
-                <button className="btn btn--danger" onClick={() => {
-                  if (confirm('Eliminare questa serata con tutti i suoi ordini?')) run(() => adminDeleteEvent(pin, event.id), 'Serata eliminata')
+                <button className="btn btn--danger" onClick={async () => {
+                  if (await ask({ title: 'Eliminare la serata?', message: 'Verranno eliminati anche tutti i suoi ordini.', confirm: 'Elimina', danger: true })) run(() => adminDeleteEvent(pin, event.id), 'Serata eliminata')
                 }}>Elimina serata</button>
               </div>
               {!event.closed && phase === 'closed' && (

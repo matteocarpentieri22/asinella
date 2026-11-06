@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { cancelOrder, submitOrder } from '../api'
+import { ask } from '../confirm'
 import { eventPhase, formatDeadline, formatEventDate, isOpen, timeLeft } from '../format'
 import { orderLabel } from '../summary'
 import { IngredientIcon } from '../piadina/IngredientIcon'
@@ -112,7 +113,7 @@ export default function Composer({
   }
 
   const cancel = async () => {
-    if (!event || !confirm('Vuoi annullare il tuo ordine?')) return
+    if (!event || !(await ask({ title: 'Annullare il tuo ordine?', confirm: 'Annulla ordine', cancel: 'Tienilo', danger: true, icon: '🫓' }))) return
     try {
       await cancelOrder(player.id, event.id)
       setSelected([])
