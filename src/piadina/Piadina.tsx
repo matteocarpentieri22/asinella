@@ -1,6 +1,6 @@
 import { AnimatePresence, animate, motion, useMotionValue, useTransform, type MotionValue } from 'framer-motion'
 import { memo, useContext, useId, useMemo } from 'react'
-import { ImagesContext, PIADINA_KEY, nameKey } from './images'
+import { ImagesContext, PIADINA_IMAGE, nameKey } from './images'
 import type { Category } from '../types'
 import { Piece, kindFor, pieceCount, pieceSize } from './art'
 import { Plate, Ramekins } from './Plate'
@@ -15,7 +15,7 @@ export const Dough = memo(function Dough({
   seed, side, viewBox,
 }: { seed: string; side: 'top' | 'under'; viewBox: string }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '')
-  const piadinaImg = useContext(ImagesContext).get(PIADINA_KEY)?.image_url
+  const piadinaImg = PIADINA_IMAGE
   const { edge, spots, specks, blisters } = useMemo(() => {
     const r = rngFrom(seed + side)
     // bordo irregolare

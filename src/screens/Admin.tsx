@@ -4,8 +4,7 @@ import {
 } from '../api'
 import { formatEventDate, fromLocalInput, isOpen, nextThursday, toLocalInput, ymd } from '../format'
 import { IngredientIcon } from '../piadina/IngredientIcon'
-import { PIADINA_KEY, nameKey, type IngredientImage, type ImageMap } from '../piadina/images'
-import { Dough } from '../piadina/Piadina'
+import { nameKey, type IngredientImage, type ImageMap } from '../piadina/images'
 import { asinellaText, orderLabel } from '../summary'
 import type { Category, EventRow, Ingredient, Order, Player } from '../types'
 
@@ -39,7 +38,8 @@ export default function Admin({
   const queue = useRef<Promise<void>>(Promise.resolve())
 
   /** Generazione in coda, una alla volta: ogni immagine usa le precedenti come riferimento di stile */
-  const gen = (name: string, category: string, key = nameKey(name)) => {
+  const gen = (name: string, category: string) => {
+    const key = nameKey(name)
     setGenerating((g) => new Set(g).add(key))
     queue.current = queue.current.then(async () => {
       try {
@@ -97,10 +97,6 @@ export default function Admin({
       {err && <div className="toast toast--error" onClick={() => setErr(null)}>{err}</div>}
 
       <EventEditor pin={pin} event={event} run={run} />
-
-      <PiadinaCard image={images.get(PIADINA_KEY)} busy={generating.has(PIADINA_KEY)}
-        onGenerate={() => gen('piadina', 'piadina', PIADINA_KEY)}
-        onUseDrawing={() => run(() => adminDeleteIngredientImage(pin, PIADINA_KEY), 'Torno al disegno')} />
 
       {event && (
         <>
@@ -408,30 +404,3 @@ function ImagePreview({ ingredient, image, busy, onClose, onRegenerate, onUseDra
   )
 }
 
-function PiadinaCard({ image, busy, onGenerate, onUseDrawing }: {
-  image: IngredientImage | undefined; busy: boolean; onGenerate: () => void; onUseDrawing: () => void
-}) {
-  const pending = busy || image?.status === 'pending'
-  const has = !!image?.image_url
-  return (
-    <section className="card piadina-card">
-      <div className="piadina-thumb">
-        {pending ? <div className="spinner" /> : <Dough seed="admin-preview" side="top" viewBox="0 0 300 300" />}
-      </div>
-      <div className="piadina-card-body">
-        <h3>Piadina</h3>
-        <p className="muted small">
-          {image?.status === 'error'
-            ? <span className="error">Errore: {image.error}</span>
-            : has ? 'Generata da Gemini, nello stesso stile degli ingredienti.' : 'Ora usa il disegno di riserva.'}
-        </p>
-        <div className="row">
-          <button className="btn btn--primary btn--sm" disabled={pending} onClick={onGenerate}>
-            {has ? 'Rigenera' : 'Genera con Gemini'}
-          </button>
-          {has && !pending && <button className="btn btn--sm" onClick={onUseDrawing}>Usa il disegno</button>}
-        </div>
-      </div>
-    </section>
-  )
-}

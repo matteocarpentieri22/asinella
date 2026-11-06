@@ -282,8 +282,3 @@ begin
   begin alter publication supabase_realtime add table public.ingredient_images; exception when duplicate_object then null; end;
 end $$;
 
--- ---------- Immagine della piadina (generata con Gemini) -------------
--- riga speciale name_key = '__piadina__', categoria 'piadina'
-alter table public.ingredient_images drop constraint if exists ingredient_images_category_check;
-alter table public.ingredient_images add constraint ingredient_images_category_check
-  check (category in ('salumi','formaggi','verdure','salse','piadina'));
