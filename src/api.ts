@@ -1,16 +1,16 @@
 import { supabase, supabaseConfigured } from './supabase'
 import { demo } from './demo'
+import type { CatalogItem, Category, EventRow, Ingredient, Order, Player } from './types'
+import type { IngredientImage } from './piadina/images'
 
 export const DEMO = !supabaseConfigured && import.meta.env.DEV
-import type { Category, EventRow, Ingredient, Order, Player } from './types'
-import type { IngredientImage } from './piadina/images'
 
 function unwrap<T>(res: { data: unknown; error: { message: string } | null }): T {
   if (res.error) throw new Error(res.error.message)
   return res.data as T
 }
 
-/** Serata corrente: la prima con data >= oggi, altrimenti l'ultima. */
+/** Serata corrente: la prima con data >= oggi, altrimenti l'ultima (conclusa). */
 export async function fetchCurrentEvent(): Promise<EventRow | null> {
   if (DEMO) return demo.currentEvent()
   const now = new Date()
@@ -26,7 +26,8 @@ export async function fetchCurrentEvent(): Promise<EventRow | null> {
 }
 
 export async function fetchEvents(): Promise<EventRow[]> {
-  return unwrap(await supabase.from('events').select('*').order('event_date', { ascending: false }).limit(20))
+  if (DEMO) return demo.events()
+  return unwrap(await supabase.from('events').select('*').order('event_date', { ascending: false }).limit(30))
 }
 
 export async function fetchIngredients(eventId: string): Promise<Ingredient[]> {
@@ -44,6 +45,11 @@ export async function fetchOrders(eventId: string): Promise<Order[]> {
 export async function fetchPlayers(): Promise<Player[]> {
   if (DEMO) return demo.players()
   return unwrap(await supabase.from('players').select('id, first_name, last_name').order('first_name'))
+}
+
+export async function fetchCatalog(): Promise<CatalogItem[]> {
+  if (DEMO) return demo.catalog()
+  return unwrap(await supabase.from('catalog').select('*').order('name'))
 }
 
 export async function loginPlayer(first: string, last: string): Promise<Player> {
@@ -76,29 +82,38 @@ export async function adminChangePin(pin: string, newPin: string) {
   if (DEMO) return demo.changePin(pin, newPin)
   unwrap(await supabase.rpc('admin_change_pin', { p_pin: pin, p_new_pin: newPin }))
 }
-export async function adminSaveEvent(
-  pin: string, id: string | null, eventDate: string, deadline: string, closed: boolean, copyFrom: string | null = null,
-): Promise<EventRow> {
-  if (DEMO) return demo.saveEvent(pin, id, eventDate, deadline, closed, copyFrom)
-  return unwrap(
+/** Aggiorna giorno, scadenza e chiusura manuale di una serata esistente */
+export async function adminUpdateEvent(pin: string, ev: EventRow, eventDate: string, deadline: string, closed: boolean) {
+  if (DEMO) return demo.saveEvent(pin, ev.id, eventDate, deadline, closed)
+  return unwrap<EventRow>(
     await supabase.rpc('admin_save_event', {
-      p_pin: pin, p_id: id, p_event_date: eventDate, p_deadline: deadline, p_closed: closed, p_copy_from: copyFrom,
+      p_pin: pin, p_id: ev.id, p_event_date: eventDate, p_deadline: deadline, p_closed: closed, p_copy_from: null,
     }),
   )
+}
+export async function adminCreateEvent(pin: string, eventDate: string, deadline: string, catalogIds: string[]) {
+  if (DEMO) return demo.createEvent(pin, eventDate, deadline, catalogIds)
+  return unwrap<EventRow>(
+    await supabase.rpc('admin_create_event', { p_pin: pin, p_event_date: eventDate, p_deadline: deadline, p_catalog_ids: catalogIds }),
+  )
+}
+export async function adminSetEventIngredients(pin: string, eventId: string, catalogIds: string[]) {
+  if (DEMO) return demo.setEventIngredients(pin, eventId, catalogIds)
+  unwrap(await supabase.rpc('admin_set_event_ingredients', { p_pin: pin, p_event: eventId, p_catalog_ids: catalogIds }))
 }
 export async function adminDeleteEvent(pin: string, id: string) {
   if (DEMO) return demo.deleteEvent(pin, id)
   unwrap(await supabase.rpc('admin_delete_event', { p_pin: pin, p_id: id }))
 }
-export async function adminAddIngredient(pin: string, eventId: string, category: string, name: string) {
-  if (DEMO) return demo.addIngredient(pin, eventId, category as Category, name)
-  return unwrap<Ingredient>(
-    await supabase.rpc('admin_add_ingredient', { p_pin: pin, p_event: eventId, p_category: category, p_name: name }),
-  )
+export async function adminCatalogAdd(pin: string, name: string, category: Category): Promise<CatalogItem> {
+  if (DEMO) return demo.catalogAdd(pin, name, category)
+  return unwrap(await supabase.rpc('admin_catalog_add', { p_pin: pin, p_name: name, p_category: category }))
 }
-export async function adminDeleteIngredient(pin: string, id: string) {
-  if (DEMO) return demo.deleteIngredient(pin, id)
-  unwrap(await supabase.rpc('admin_delete_ingredient', { p_pin: pin, p_id: id }))
+export async function adminCatalogUpdate(pin: string, id: string, name: string, category: Category, archived: boolean) {
+  if (DEMO) return demo.catalogUpdate(pin, id, name, category, archived)
+  return unwrap<CatalogItem>(
+    await supabase.rpc('admin_catalog_update', { p_pin: pin, p_id: id, p_name: name, p_category: category, p_archived: archived }),
+  )
 }
 export async function adminDeleteOrder(pin: string, id: string) {
   if (DEMO) return demo.deleteOrder(pin, id)
@@ -113,7 +128,11 @@ export async function fetchIngredientImages(): Promise<IngredientImage[]> {
 
 /** Chiede alla Edge Function di generare (o rigenerare) l'immagine di un ingrediente. */
 export async function generateIngredientImage(pin: string, name: string, category: string) {
-  if (DEMO) throw new Error('In modalità demo la generazione con Gemini non è disponibile')
+  if (DEMO) {
+    // in demo simuliamo i tempi, così si vede l'animazione
+    await new Promise((r) => setTimeout(r, 6000))
+    throw new Error('In modalità demo la generazione con Gemini non è disponibile')
+  }
   const { data, error } = await supabase.functions.invoke('generate-ingredient', { body: { pin, name, category } })
   if (error) {
     let msg = error.message
@@ -127,18 +146,17 @@ export async function generateIngredientImage(pin: string, name: string, categor
 }
 
 export async function adminDeleteIngredientImage(pin: string, nameKey: string) {
+  if (DEMO) return
   unwrap(await supabase.rpc('admin_delete_ingredient_image', { p_pin: pin, p_name_key: nameKey }))
 }
 
-/** Realtime: richiama cb a ogni cambio su orders/ingredients/events. */
+/** Realtime: richiama cb a ogni cambio rilevante. */
 export function subscribeChanges(cb: () => void) {
   if (DEMO) return demo.subscribe(cb)
-  const ch = supabase
-    .channel('asinella-live-' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, cb)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'ingredients' }, cb)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, cb)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'ingredient_images' }, cb)
-    .subscribe()
+  const ch = supabase.channel('asinella-live-' + Math.random().toString(36).slice(2))
+  for (const table of ['orders', 'ingredients', 'events', 'ingredient_images', 'catalog']) {
+    ch.on('postgres_changes', { event: '*', schema: 'public', table }, cb)
+  }
+  ch.subscribe()
   return () => { supabase.removeChannel(ch) }
 }

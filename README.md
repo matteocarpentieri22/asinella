@@ -11,6 +11,7 @@ Stack: Vite + React + TypeScript, Framer Motion, Supabase.
 
 1. Apri il progetto su supabase.com → **SQL Editor** → *New query*.
 2. Incolla tutto il contenuto di [`supabase/schema.sql`](supabase/schema.sql) e premi **Run**.
+   Se avevi già eseguito una versione precedente, basta eseguire [`supabase/migration-dispensa.sql`](supabase/migration-dispensa.sql) (dispensa + una serata alla volta).
 3. PIN admin iniziale: **`asinella`** → cambialo subito dal pannello admin ("Cambia PIN admin").
 4. Prendi URL e chiave pubblica da **Project Settings → API**:
    - `Project URL`

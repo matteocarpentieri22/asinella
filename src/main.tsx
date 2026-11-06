@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { MotionConfig } from 'framer-motion'
 import App from './App'
 import './styles.css'
+import './admin.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

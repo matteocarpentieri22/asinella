@@ -46,3 +46,12 @@ export function ymd(d: Date) {
 export function isOpen(ev: { closed: boolean; deadline: string } | null, now = Date.now()) {
   return !!ev && !ev.closed && new Date(ev.deadline).getTime() > now
 }
+
+export type EventPhase = 'open' | 'closed' | 'concluded'
+
+/** aperta: si ordina · chiusa: scadenza passata, serata non ancora fatta · conclusa: giorno passato */
+export function eventPhase(ev: { closed: boolean; deadline: string; event_date: string }, now = Date.now()): EventPhase {
+  if (ev.event_date < ymd(new Date(now))) return 'concluded'
+  if (ev.closed || new Date(ev.deadline).getTime() <= now) return 'closed'
+  return 'open'
+}

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { DEMO, loginPlayer, fetchIngredientImages, fetchCurrentEvent, fetchIngredients, fetchOrders, fetchPlayers, subscribeChanges } from './api'
+import { DEMO, loginPlayer, fetchCatalog, fetchIngredientImages, fetchCurrentEvent, fetchIngredients, fetchOrders, fetchPlayers, subscribeChanges } from './api'
 import { GlobalDefs } from './piadina/art'
 import { ImagesContext, type ImageMap } from './piadina/images'
 import { supabaseConfigured as configured } from './supabase'
-import type { EventRow, Ingredient, Order, Player } from './types'
+import type { CatalogItem, EventRow, Ingredient, Order, Player } from './types'
 import Login from './screens/Login'
 import Composer from './screens/Composer'
 import OrdersList from './screens/OrdersList'
@@ -29,6 +29,7 @@ export default function App() {
   const [orders, setOrders] = useState<Order[]>([])
   const [players, setPlayers] = useState<Player[]>([])
   const [images, setImages] = useState<ImageMap>(new Map())
+  const [catalog, setCatalog] = useState<CatalogItem[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
 
@@ -42,12 +43,14 @@ export default function App() {
     if (!supabaseConfigured) return
     try {
       const ev = await fetchCurrentEvent()
-      const [ings, ords, pls, imgs] = await Promise.all([
+      const [ings, ords, pls, imgs, cat] = await Promise.all([
         ev ? fetchIngredients(ev.id) : Promise.resolve([]),
         ev ? fetchOrders(ev.id) : Promise.resolve([]),
         fetchPlayers(),
         fetchIngredientImages().catch(() => []),
+        fetchCatalog().catch(() => [] as CatalogItem[]),
       ])
+      setCatalog(cat)
       setImages(new Map(imgs.map((i) => [i.name_key, i])))
       setEvent(ev)
       setIngredients(ings)
@@ -101,7 +104,7 @@ export default function App() {
       </div>
     )
   } else if (route === 'admin') {
-    body = <Admin event={event} ingredients={ingredients} orders={orders} players={players} images={images} reload={reload} />
+    body = <Admin event={event} ingredients={ingredients} orders={orders} players={players} images={images} catalog={catalog} reload={reload} />
   } else if (!player) {
     body = <Login onLogin={login} />
   } else if (loading) {

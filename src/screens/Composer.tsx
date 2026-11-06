@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { cancelOrder, submitOrder } from '../api'
-import { formatDeadline, formatEventDate, isOpen, timeLeft } from '../format'
+import { eventPhase, formatDeadline, formatEventDate, isOpen, timeLeft } from '../format'
 import { orderLabel } from '../summary'
 import { IngredientIcon } from '../piadina/IngredientIcon'
 import { PiadinaStage, usePiadinaMotion, type FillingItem } from '../piadina/Piadina'
@@ -33,6 +33,7 @@ export default function Composer({
   const myOrder = orders.find((o) => o.player_id === player.id) ?? null
   const now = useNow()
   const open = isOpen(event, now)
+  const evPhase = event ? eventPhase(event, now) : null
 
   const [selected, setSelected] = useState<string[]>(() =>
     myOrder ? myOrder.items.map((i) => i.id).filter((id) => ingredients.some((g) => g.id === id)) : [],
@@ -125,6 +126,13 @@ export default function Composer({
     }
   }
 
+  useEffect(() => {
+    if (!open && phase === 'compose' && myOrder) {
+      m.set(true)
+      setPhase('done')
+    }
+  }, [open, phase, myOrder, m])
+
   /* ---------- stati vuoti ---------- */
   if (!event) {
     return (
@@ -136,19 +144,34 @@ export default function Composer({
     )
   }
 
+  if (evPhase === 'concluded') {
+    return (
+      <div className="concluded">
+        <img src="/logo-256.png" alt="" width={150} height={124} />
+        <h2>Serata conclusa</h2>
+        <p className="muted">
+          Quella di {formatEventDate(event.event_date)} è andata! Ci vediamo al prossimo giovedì:
+          appena l'admin apre la nuova serata la trovi qui.
+        </p>
+        {myOrder && <p className="small muted">La tua ultima piadina: {orderLabel(myOrder)}</p>}
+      </div>
+    )
+  }
+
   const left = timeLeft(event.deadline, now)
   const seed = event.id + player.id
 
   return (
     <div className={'composer phase-' + phase}>
-      <div className="eventbar">
+      <div className={'eventbar' + (open ? '' : ' eventbar--closed')}>
         <div>
           <div className="eventbar-title">Ciao {player.first_name}! · {formatEventDate(event.event_date)}</div>
           <div className="eventbar-sub">
-            {open ? <>Ordini aperti fino a {formatDeadline(event.deadline)}</> : <>Ordini chiusi</>}
+            {open ? <>Ordini aperti fino a {formatDeadline(event.deadline)}</> : <>Ordini chiusi · ci vediamo {formatEventDate(event.event_date)}</>}
           </div>
         </div>
         {open && left && <div className="countdown">{left}</div>}
+        {!open && <div className="closed-badge">Chiusi</div>}
       </div>
 
       <PiadinaStage seed={seed} items={items} extra={shownExtra} m={m} />
@@ -223,7 +246,8 @@ export default function Composer({
           <motion.div key="done" className="card done"
             initial={{ opacity: 0, y: 30, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: 'spring', stiffness: 260, damping: 24 }}>
-            <h2>{open ? 'Ordine inviato!' : 'La tua piadina'}</h2>
+            <h2>{open ? 'Ordine inviato!' : 'La tua piadina è confermata'}</h2>
+            {!open && <p className="muted small">Gli ordini sono chiusi: la trovi {formatEventDate(event.event_date)} dopo l'allenamento.</p>}
             <p className="done-items">
               {orderLabel(myOrder)}
             </p>
@@ -239,8 +263,8 @@ export default function Composer({
 
         {phase !== 'sending' && !open && !myOrder && (
           <motion.div key="closed" className="card done" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <h2>Ordini chiusi</h2>
-            <p className="muted">Per questa settimana non hai ordinato. Chiedi all'admin se è ancora in tempo.</p>
+            <h2>Questa settimana non hai ordinato</h2>
+            <p className="muted">Gli ordini per {formatEventDate(event.event_date)} sono chiusi. Se è un'emergenza, scrivi all'admin.</p>
             <button className="btn btn--primary" onClick={onShowOrders}>Vedi gli ordini</button>
           </motion.div>
         )}

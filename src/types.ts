@@ -23,9 +23,19 @@ export interface EventRow {
   created_at: string
 }
 
+export interface CatalogItem {
+  id: string
+  name: string
+  name_key: string
+  category: Category
+  archived: boolean
+  created_at: string
+}
+
 export interface Ingredient {
   id: string
   event_id: string
+  catalog_id?: string | null
   category: Category
   name: string
   sort: number
