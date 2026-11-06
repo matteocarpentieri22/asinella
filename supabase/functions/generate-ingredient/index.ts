@@ -66,7 +66,8 @@ async function gemini(model: string, text: string, refs: Ref[], wantImage: boole
   const input: unknown[] = [{ type: 'text', text }]
   for (const r of refs) input.push({ type: 'image', mime_type: r.mime, data: r.data })
   const body1: Record<string, unknown> = { model, input }
-  if (wantImage) body1.response_format = { type: 'image', mime_type: 'image/png', aspect_ratio: '1:1', image_size: '1K' }
+  // l'API accetta solo JPEG in uscita: lo sfondo magenta lo togliamo noi dopo
+  if (wantImage) body1.response_format = { type: 'image', mime_type: 'image/jpeg', aspect_ratio: '1:1', image_size: '1K' }
   const r1 = await fetch(`${API}/interactions`, {
     method: 'POST',
     headers: { 'x-goog-api-key': GEMINI_KEY, 'Content-Type': 'application/json', 'Api-Revision': '2026-05-20' },
@@ -91,6 +92,12 @@ async function gemini(model: string, text: string, refs: Ref[], wantImage: boole
   })
   if (r2.ok) return await r2.json()
   errors.push(`generateContent ${r2.status}: ${(await r2.text()).slice(0, 300)}`)
+  if (r1.status === 429 || r2.status === 429) {
+    throw new Error(
+      'Quota Gemini esaurita: la generazione di immagini richiede la fatturazione attiva su Google AI Studio ' +
+        '(il piano gratuito non la include o ha già finito la quota). Dettagli: ' + errors.join(' | '),
+    )
+  }
   throw new Error('Gemini non ha risposto: ' + errors.join(' | '))
 }
 
