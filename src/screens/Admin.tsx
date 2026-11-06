@@ -12,10 +12,10 @@ export const PIN_KEY = 'asinella.adminPin'
 type Tab = 'serata' | 'dispensa' | 'impostazioni'
 
 export default function Admin({
-  event, ingredients, orders, players, images, catalog, reload, me, onGoHome,
+  event, ingredients, orders, players, images, catalog, reload, me, onGoHome, onLogin,
 }: {
   event: EventRow | null; ingredients: Ingredient[]; orders: Order[]; players: Player[]; images: ImageMap
-  catalog: CatalogItem[]; reload: () => Promise<void>; me: Player | null; onGoHome: () => void
+  catalog: CatalogItem[]; reload: () => Promise<void>; me: Player | null; onGoHome: () => void; onLogin: (p: Player) => void
 }) {
   // il PIN resta salvato su questo telefono: niente PIN a ogni apertura
   const [pin, setPin] = useState(() => localStorage.getItem(PIN_KEY) || sessionStorage.getItem(PIN_KEY) || '')
@@ -94,7 +94,7 @@ export default function Admin({
         {tab === 'serata' && (
           <EventTab pin={pin} event={event} ingredients={ingredients} orders={orders} players={players} catalog={catalog}
             run={run} flash={flash} onError={onError} reload={reload} phone={phone} onOpenSettings={() => setTab('impostazioni')}
-            me={me} onGoHome={onGoHome} />
+            me={me} onGoHome={onGoHome} onLogin={onLogin} />
         )}
         {tab === 'dispensa' && (
           <PantryTab pin={pin} catalog={catalog} images={images} run={run} onError={onError} reload={reload} />

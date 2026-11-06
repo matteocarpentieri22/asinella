@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   adminCreateEvent, adminDeleteEvent, adminDeleteOrder, adminSetEventIngredients, adminUpdateEvent,
-  fetchEvents, fetchIngredients, fetchOrders,
+  fetchEvents, fetchIngredients, fetchOrders, loginPlayer,
 } from '../../api'
 import {
   eventPhase, formatDeadline, formatEventDate, fromLocalInput, nextThursday, timeLeft, toLocalInput, ymd,
@@ -42,8 +42,9 @@ export function waNumber(phone: string | null) {
   return d.length >= 8 ? d : null
 }
 
-export function EventTab({ event, ingredients, orders, me, onGoHome, ...c }: Common & {
+export function EventTab({ event, ingredients, orders, me, onGoHome, onLogin, ...c }: Common & {
   event: EventRow | null; ingredients: Ingredient[]; orders: Order[]; me: Player | null; onGoHome: () => void
+  onLogin: (p: Player) => void
 }) {
   const now = useNow()
   const phase = event ? eventPhase(event, now) : null
@@ -60,7 +61,7 @@ export function EventTab({ event, ingredients, orders, me, onGoHome, ...c }: Com
     <div className="event-tab">
       {event && phase !== 'concluded' && (
         <CurrentEvent {...c} event={event} phase={phase!} now={now} ingredients={ingredients} orders={orders}
-          me={me} onGoHome={onGoHome}
+          me={me} onGoHome={onGoHome} onLogin={onLogin}
           nextSlot={phase === 'closed' && (
             showNext ? (
               <NewEvent {...c} lastEvent={latest ?? null} title="Prossima serata" onCancel={() => setShowNext(false)} />
@@ -113,9 +114,9 @@ function Row({ title, count, children, open, onToggle }: {
 }
 
 function CurrentEvent({ pin, event, phase, now, ingredients, orders, players, catalog, run, flash, onError, reload, phone,
-  onOpenSettings, me, onGoHome, nextSlot }: Common & {
+  onOpenSettings, me, onGoHome, onLogin, nextSlot }: Common & {
   event: EventRow; phase: 'open' | 'closed'; now: number; ingredients: Ingredient[]; orders: Order[]
-  me: Player | null; onGoHome: () => void; nextSlot?: ReactNode
+  me: Player | null; onGoHome: () => void; onLogin: (p: Player) => void; nextSlot?: ReactNode
 }) {
   const [openRow, setOpenRow] = useState<string | null>(null)
   const [editIngr, setEditIngr] = useState(false)
@@ -161,7 +162,7 @@ function CurrentEvent({ pin, event, phase, now, ingredients, orders, players, ca
           <p className="ev-count">
             <strong>{orders.length}</strong> {orders.length === 1 ? 'piadina ordinata' : 'piadine ordinate'}
           </p>
-          {me && (
+          {me && (myOrder || phase === 'closed') && (
             <button className="hero-me" onClick={onGoHome}>
               {myOrder
                 ? <>La tua: <strong>{orderLabel(myOrder)}</strong>{phase === 'open' && ' · modifica →'}</>
@@ -169,6 +170,13 @@ function CurrentEvent({ pin, event, phase, now, ingredients, orders, players, ca
             </button>
           )}
         </div>
+
+        {/* la piadina dell'admin */}
+        {phase === 'open' && !myOrder && (
+          <div className="ev-actions">
+            <MyPiadinaButton me={me} onGoHome={onGoHome} onLogin={onLogin} onError={onError} />
+          </div>
+        )}
 
         {/* azioni principali */}
         {phase === 'closed' && (
@@ -324,7 +332,7 @@ function NewEvent({ pin, catalog, lastEvent, run, onError, reload, title = 'Nuov
       <div className="sticky-actions">
         <button className="btn btn--primary btn--block" disabled={busy || !sel.length || !date || !deadline} onClick={async () => {
           setBusy(true)
-          await run(() => adminCreateEvent(pin, date, fromLocalInput(deadline), sel), 'Serata creata! Gli ordini sono aperti')
+          await run(() => adminCreateEvent(pin, date, fromLocalInput(deadline), sel), 'Serata creata! Ora ordina anche la tua piadina')
           setBusy(false)
         }}>
           {sel.length ? `Crea serata con ${sel.length} ingredienti` : 'Scegli almeno un ingrediente'}
@@ -423,5 +431,50 @@ function HistoryItem({ event, players, flash, phone }: { event: EventRow; player
         </>
       )}
     </details>
+  )
+}
+
+/** Bottone ben visibile per l'admin: ordina la tua piadina (chiede nome e cognome se su questo telefono mancano) */
+function MyPiadinaButton({ me, onGoHome, onLogin, onError }: {
+  me: Player | null; onGoHome: () => void; onLogin: (p: Player) => void; onError: (m: string) => void
+}) {
+  const [asking, setAsking] = useState(false)
+  const [first, setFirst] = useState('')
+  const [last, setLast] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  if (!asking) {
+    return (
+      <motion.button className="btn btn--primary btn--block btn--big" whileTap={{ scale: 0.97 }}
+        onClick={() => (me ? onGoHome() : setAsking(true))}>
+        🫓 Ordina la tua piadina
+      </motion.button>
+    )
+  }
+  return (
+    <form className="form my-name" onSubmit={async (e) => {
+      e.preventDefault()
+      if (first.trim().length < 2 || last.trim().length < 2) return onError('Scrivi nome e cognome')
+      setBusy(true)
+      try {
+        const p = await loginPlayer(first, last)
+        onLogin(p)
+        onGoHome()
+      } catch (err) {
+        onError((err as Error).message)
+      } finally {
+        setBusy(false)
+      }
+    }}>
+      <p className="small"><strong>Come ti chiami?</strong> Il nome compare nell'ordine per Asinella, come per tutti.</p>
+      <div className="my-name-row">
+        <input value={first} onChange={(e) => setFirst(e.target.value)} placeholder="Nome" autoComplete="given-name" autoCapitalize="words" autoFocus />
+        <input value={last} onChange={(e) => setLast(e.target.value)} placeholder="Cognome" autoComplete="family-name" autoCapitalize="words" />
+      </div>
+      <div className="row">
+        <button type="button" className="btn" onClick={() => setAsking(false)}>Annulla</button>
+        <button className="btn btn--primary" disabled={busy}>{busy ? '…' : 'Continua'}</button>
+      </div>
+    </form>
   )
 }

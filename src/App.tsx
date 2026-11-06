@@ -107,7 +107,7 @@ export default function App() {
       </div>
     )
   } else if (route === 'admin') {
-    body = <Admin event={event} ingredients={ingredients} orders={orders} players={players} images={images} catalog={catalog} reload={reload} me={player} onGoHome={() => go('home')} />
+    body = <Admin event={event} ingredients={ingredients} orders={orders} players={players} images={images} catalog={catalog} reload={reload} me={player} onGoHome={() => go('home')} onLogin={login} />
   } else if (!player) {
     body = <Login onLogin={login} />
   } else if (loading) {
