@@ -196,11 +196,6 @@ export default function Composer({
                   <input value={extra} onChange={(e) => setExtra(e.target.value)} maxLength={80}
                     placeholder="es. doppio formaggio, rucola…" />
                 </label>
-                <label>
-                  Note per la cucina
-                  <input value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={120}
-                    placeholder="es. ben cotta, tagliata a metà…" />
-                </label>
               </div>
             ) : (
               <div className="grid">
