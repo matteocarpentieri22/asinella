@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   adminCreateEvent, adminDeleteEvent, adminDeleteOrder, adminSetEventIngredients, adminUpdateEvent,
   fetchEvents, fetchIngredients, fetchOrders, loginPlayer,
@@ -299,6 +299,14 @@ function NewEvent({ pin, catalog, lastEvent, run, onError, reload, title = 'Nuov
   const [deadline, setDeadline] = useState(toLocalInput(defaultDeadline(firstDate)))
   const [sel, setSel] = useState<string[]>([])
   const [last, setLast] = useState<string[]>([])
+  // le salse ci sono sempre: partono già selezionate (si possono togliere)
+  const saucesInit = useRef(false)
+  useEffect(() => {
+    if (saucesInit.current || !catalog.length) return
+    saucesInit.current = true
+    const sauces = catalog.filter((c) => c.category === 'salse').map((c) => c.id)
+    setSel((cur) => [...new Set([...cur, ...sauces])])
+  }, [catalog])
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
