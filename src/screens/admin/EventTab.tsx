@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   adminCreateEvent, adminDeleteEvent, adminDeleteOrder, adminSetEventIngredients, adminUpdateEvent,
   fetchEvents, fetchIngredients, fetchOrders,
@@ -60,21 +60,21 @@ export function EventTab({ event, ingredients, orders, me, onGoHome, ...c }: Com
     <div className="event-tab">
       {event && phase !== 'concluded' && (
         <CurrentEvent {...c} event={event} phase={phase!} now={now} ingredients={ingredients} orders={orders}
-          me={me} onGoHome={onGoHome} />
-      )}
-
-      {event && phase === 'closed' && (
-        showNext ? (
-          <NewEvent {...c} lastEvent={latest ?? null} title="Prossima serata" onCancel={() => setShowNext(false)} />
-        ) : (
-          <motion.button className="next-event-btn" onClick={() => setShowNext(true)} whileTap={{ scale: 0.98 }}>
-            <span className="next-event-plus">+</span>
-            <span>
-              <strong>Crea la prossima serata</strong>
-              <small>Gli ordini di questa sono chiusi: puoi già aprire la successiva</small>
-            </span>
-          </motion.button>
-        )
+          me={me} onGoHome={onGoHome}
+          nextSlot={phase === 'closed' && (
+            showNext ? (
+              <NewEvent {...c} lastEvent={latest ?? null} title="Prossima serata" onCancel={() => setShowNext(false)} />
+            ) : (
+              <motion.button className="next-event-btn" onClick={() => setShowNext(true)} whileTap={{ scale: 0.98 }}
+                initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}>
+                <span className="next-event-plus">+</span>
+                <span>
+                  <strong>Crea la prossima serata</strong>
+                  <small>Gli ordini di questa sono chiusi: puoi già aprire la successiva</small>
+                </span>
+              </motion.button>
+            )
+          )} />
       )}
 
       {(!event || phase === 'concluded') && <NewEvent {...c} lastEvent={latest ?? null} />}
@@ -92,9 +92,9 @@ export function EventTab({ event, ingredients, orders, me, onGoHome, ...c }: Com
 /* ---------------- serata in corso ---------------- */
 
 function CurrentEvent({ pin, event, phase, now, ingredients, orders, players, catalog, run, flash, onError, reload, phone,
-  onOpenSettings, me, onGoHome }: Common & {
+  onOpenSettings, me, onGoHome, nextSlot }: Common & {
   event: EventRow; phase: 'open' | 'closed'; now: number; ingredients: Ingredient[]; orders: Order[]
-  me: Player | null; onGoHome: () => void
+  me: Player | null; onGoHome: () => void; nextSlot?: ReactNode
 }) {
   const [editIngr, setEditIngr] = useState(false)
   const [sel, setSel] = useState<string[]>([])
@@ -146,7 +146,9 @@ function CurrentEvent({ pin, event, phase, now, ingredients, orders, players, ca
         )}
       </section>
 
-      {/* a ordini chiusi l'azione principale è mandare l'ordine */}
+      {nextSlot}
+
+      {/* a ordini chiusi l'altra azione principale è mandare l'ordine */}
       {phase === 'closed' && (
         <SendToAsinella orders={orders} players={players} flash={flash} phone={phone} onOpenSettings={onOpenSettings} highlight />
       )}
