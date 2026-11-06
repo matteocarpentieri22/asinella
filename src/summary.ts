@@ -1,3 +1,4 @@
+import { fullName } from './names'
 import type { Order, Player } from './types'
 
 const CAT_ORDER = ['salumi', 'formaggi', 'verdure']
@@ -21,7 +22,7 @@ export function asinellaText(orders: Order[], players: Player[]) {
   return orders
     .map((o) => {
       const p = byId.get(o.player_id)
-      const name = p ? `${p.first_name} ${p.last_name}` : '?'
+      const name = p ? fullName(p) : '?'
       return { name, line: `${name}: ${orderLabel(o)}${o.notes ? ` (${o.notes})` : ''}` }
     })
     .sort((a, b) => a.name.localeCompare(b.name))

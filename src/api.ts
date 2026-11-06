@@ -57,7 +57,7 @@ export async function fetchCatalog(): Promise<CatalogItem[]> {
   return unwrap(await supabase.from('catalog').select('*').order('name'))
 }
 
-export async function loginPlayer(first: string, last: string): Promise<Player> {
+export async function loginPlayer(first: string, last = ''): Promise<Player> {
   if (DEMO) return demo.login(first, last)
   return unwrap(await supabase.rpc('login_player', { p_first: first, p_last: last }))
 }

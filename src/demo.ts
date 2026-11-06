@@ -71,8 +71,9 @@ export const demo = {
   players: async () => [...players],
   catalog: async () => [...catalog],
   login: async (f: string, l: string) => {
-    const k = key(f + ' ' + l)
-    let p = players.find((x) => key(x.first_name + ' ' + x.last_name) === k)
+    if (f.trim().length < 2) throw new Error('Inserisci il nome')
+    const k = key((f + ' ' + l).trim())
+    let p = players.find((x) => key((x.first_name + ' ' + x.last_name).trim()) === k)
     if (!p) { p = { id: uid(), first_name: f.trim(), last_name: l.trim() }; players.push(p); emit() }
     return p
   },

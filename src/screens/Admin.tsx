@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useCallback, useEffect, useState } from 'react'
 import { ask } from '../confirm'
-import { adminChangePin, adminCheck, adminGetSettings, adminSetSetting } from '../api'
+import { adminChangePin, adminCheck, adminGetSettings, adminSetSetting, loginPlayer } from '../api'
 import type { ImageMap } from '../piadina/images'
 import type { CatalogItem, EventRow, Ingredient, Order, Player } from '../types'
 import { AiBanner } from './admin/AiImage'
@@ -23,6 +23,7 @@ export default function Admin({
   const [phone, setPhone] = useState<string | null>(null)
   const [authed, setAuthed] = useState(false)
   const [pinInput, setPinInput] = useState('')
+  const [nameInput, setNameInput] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('serata')
@@ -52,15 +53,25 @@ export default function Admin({
       <form className="card form admin-login" onSubmit={async (e) => {
         e.preventDefault()
         setErr(null)
+        if (!me && nameInput.trim().length < 2) return setErr('Scrivi il tuo nome')
         const ok = await adminCheck(pinInput).catch(() => false)
-        if (ok) { localStorage.setItem(PIN_KEY, pinInput); setPin(pinInput); setAuthed(true) }
-        else setErr('PIN errato')
+        if (!ok) return setErr('PIN errato')
+        if (!me) {
+          try { onLogin(await loginPlayer(nameInput, '')) } catch (e) { return setErr((e as Error).message) }
+        }
+        localStorage.setItem(PIN_KEY, pinInput); setPin(pinInput); setAuthed(true)
       }}>
         <h2>Area admin</h2>
+        {!me && (
+          <label>
+            Nome
+            <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} autoComplete="given-name" autoCapitalize="words" placeholder="Mario" />
+          </label>
+        )}
         <label>
           PIN
           <input type="password" autoCapitalize="none" autoCorrect="off" autoComplete="current-password" value={pinInput}
-            onChange={(e) => setPinInput(e.target.value)} autoFocus />
+            onChange={(e) => setPinInput(e.target.value)} autoFocus={!!me} />
         </label>
         {err && <p className="error">{err}</p>}
         <button className="btn btn--primary btn--block">Entra</button>

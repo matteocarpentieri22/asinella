@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { eventPhase } from './format'
 import { GlobalDefs } from './piadina/art'
 import { ConfirmHost, ask } from './confirm'
+import { fullName, initials } from './names'
 import { ImagesContext, type ImageMap } from './piadina/images'
 import { supabaseConfigured as configured } from './supabase'
 import type { CatalogItem, EventRow, Ingredient, Order, Player } from './types'
@@ -144,10 +145,10 @@ export default function App() {
             <>
               {isAdminDevice && <button className="navbtn navbtn--admin" onClick={() => go('admin')}>Admin</button>}
               <button className="avatar" onClick={async () => {
-                if (await ask({ title: `Esci da ${player.first_name} ${player.last_name}?`, confirm: 'Esci', icon: '👋' })) logout()
+                if (await ask({ title: `Esci da ${fullName(player)}?`, confirm: 'Esci', icon: '👋' })) logout()
               }}
                 aria-label="Esci">
-                {player.first_name[0]}{player.last_name[0]}
+                {initials(player)}
               </button>
             </>
           )}

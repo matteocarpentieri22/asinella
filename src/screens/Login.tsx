@@ -3,21 +3,20 @@ import { loginPlayer } from '../api'
 import type { Player } from '../types'
 
 export default function Login({ onLogin }: { onLogin: (p: Player) => void }) {
-  const [first, setFirst] = useState('')
-  const [last, setLast] = useState('')
+  const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (first.trim().length < 2 || last.trim().length < 2) {
-      setErr('Scrivi nome e cognome')
+    if (name.trim().length < 2) {
+      setErr('Scrivi il tuo nome')
       return
     }
     setBusy(true)
     setErr(null)
     try {
-      onLogin(await loginPlayer(first, last))
+      onLogin(await loginPlayer(name, ''))
     } catch (e) {
       setErr((e as Error).message)
     } finally {
@@ -32,13 +31,8 @@ export default function Login({ onLogin }: { onLogin: (p: Player) => void }) {
       <form className="card form" onSubmit={submit}>
         <label>
           Nome
-          <input value={first} onChange={(e) => setFirst(e.target.value)} autoComplete="given-name"
-            autoCapitalize="words" enterKeyHint="next" placeholder="Mario" />
-        </label>
-        <label>
-          Cognome
-          <input value={last} onChange={(e) => setLast(e.target.value)} autoComplete="family-name"
-            autoCapitalize="words" enterKeyHint="go" placeholder="Rossi" />
+          <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name"
+            autoCapitalize="words" enterKeyHint="go" placeholder="Mario" />
         </label>
         {err && <p className="error">{err}</p>}
         <button className="btn btn--primary btn--block" disabled={busy}>

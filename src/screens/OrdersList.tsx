@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { formatDeadline, formatEventDate, isOpen } from '../format'
 import { IngredientIcon } from '../piadina/IngredientIcon'
 import { orderLabel } from '../summary'
+import { fullName, initials } from '../names'
 import type { EventRow, Order, Player } from '../types'
 
 /** Le piadine di tutti per la serata in corso */
@@ -44,9 +45,9 @@ export default function OrdersList({
             <motion.li key={o.id} className={'order' + (isMe ? ' is-mine' : '')}
               initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.03, 0.4) }}
               onClick={isMe && open ? onCompose : undefined}>
-              <div className="order-avatar">{p ? p.first_name[0] + p.last_name[0] : '?'}</div>
+              <div className="order-avatar">{p ? initials(p) : '?'}</div>
               <div className="order-body">
-                <div className="order-name">{p ? `${p.first_name} ${p.last_name}` : 'Sconosciuto'}{isMe && ' (tu)'}</div>
+                <div className="order-name">{p ? fullName(p) : 'Sconosciuto'}{isMe && ' (tu)'}</div>
                 <div className="order-icons">
                   {o.items.slice(0, 7).map((it) => <IngredientIcon key={it.id} name={it.name} category={it.category} />)}
                 </div>

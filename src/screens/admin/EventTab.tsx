@@ -12,6 +12,7 @@ import { asinellaText, orderLabel } from '../../summary'
 import type { CatalogItem, EventRow, Ingredient, Order, Player } from '../../types'
 import { IngredientPicker } from './IngredientPicker'
 import { ask } from '../../confirm'
+import { fullName, initials } from '../../names'
 
 type Run = (fn: () => Promise<unknown>, ok?: string) => Promise<void>
 
@@ -397,10 +398,10 @@ function OrdersList({ orders, players, onDelete }: {
     <ul className="order-list">
       {orders.map((o) => {
         const p = byId.get(o.player_id)
-        const name = p ? `${p.first_name} ${p.last_name}` : '?'
+        const name = p ? fullName(p) : '?'
         return (
           <li key={o.id} className="order">
-            <div className="order-avatar">{p ? p.first_name[0] + p.last_name[0] : '?'}</div>
+            <div className="order-avatar">{p ? initials(p) : '?'}</div>
             <div className="order-body">
               <div className="order-name">{name}</div>
               <div className="order-items">{orderLabel(o)}</div>
@@ -441,7 +442,6 @@ function MyPiadinaButton({ me, onGoHome, onLogin, onError }: {
 }) {
   const [asking, setAsking] = useState(false)
   const [first, setFirst] = useState('')
-  const [last, setLast] = useState('')
   const [busy, setBusy] = useState(false)
 
   if (!asking) {
@@ -455,10 +455,10 @@ function MyPiadinaButton({ me, onGoHome, onLogin, onError }: {
   return (
     <form className="form my-name" onSubmit={async (e) => {
       e.preventDefault()
-      if (first.trim().length < 2 || last.trim().length < 2) return onError('Scrivi nome e cognome')
+      if (first.trim().length < 2) return onError('Scrivi il tuo nome')
       setBusy(true)
       try {
-        const p = await loginPlayer(first, last)
+        const p = await loginPlayer(first, '')
         onLogin(p)
         onGoHome()
       } catch (err) {
@@ -469,7 +469,6 @@ function MyPiadinaButton({ me, onGoHome, onLogin, onError }: {
     }}>
       <div className="my-name-row">
         <input value={first} onChange={(e) => setFirst(e.target.value)} placeholder="Nome" autoComplete="given-name" autoCapitalize="words" autoFocus />
-        <input value={last} onChange={(e) => setLast(e.target.value)} placeholder="Cognome" autoComplete="family-name" autoCapitalize="words" />
       </div>
       <div className="row">
         <button type="button" className="btn" onClick={() => setAsking(false)}>Annulla</button>
