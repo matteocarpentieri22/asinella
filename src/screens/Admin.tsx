@@ -58,7 +58,7 @@ export default function Admin({
         <h2>Area admin</h2>
         <label>
           PIN
-          <input type="password" inputMode="numeric" autoComplete="current-password" value={pinInput}
+          <input type="password" autoCapitalize="none" autoCorrect="off" autoComplete="current-password" value={pinInput}
             onChange={(e) => setPinInput(e.target.value)} autoFocus />
         </label>
         {err && <p className="error">{err}</p>}
