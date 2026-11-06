@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { DEMO, loginPlayer, fetchCatalog, fetchIngredientImages, fetchCurrentEvent, fetchIngredients, fetchOrders, fetchPlayers, subscribeChanges } from './api'
+import { motion } from 'framer-motion'
+import { eventPhase } from './format'
 import { GlobalDefs } from './piadina/art'
 import { ImagesContext, type ImageMap } from './piadina/images'
 import { supabaseConfigured as configured } from './supabase'
@@ -111,7 +113,7 @@ export default function App() {
   } else if (loading) {
     body = <div className="loader"><div className="spinner" /></div>
   } else if (route === 'ordini') {
-    body = <OrdersList event={event} orders={orders} players={players} me={player} onBack={() => go('home')} />
+    body = <OrdersList event={event} orders={orders} players={players} me={player} onCompose={() => go('home')} />
   } else {
     body = (
       <Composer
@@ -139,9 +141,6 @@ export default function App() {
           {player && route !== 'admin' && (
             <>
               {isAdminDevice && <button className="navbtn navbtn--admin" onClick={() => go('admin')}>Admin</button>}
-              <button className={'navbtn' + (route === 'ordini' ? ' is-active' : '')} onClick={() => go(route === 'ordini' ? 'home' : 'ordini')}>
-                {route === 'ordini' ? 'La mia' : `Ordini${orders.length ? ` · ${orders.length}` : ''}`}
-              </button>
               <button className="avatar" onClick={() => { if (confirm(`Esci da ${player.first_name} ${player.last_name}?`)) logout() }}
                 aria-label="Esci">
                 {player.first_name[0]}{player.last_name[0]}
@@ -152,6 +151,18 @@ export default function App() {
         </nav>
       </header>
       {loadError && <div className="toast toast--error">Errore di connessione: {loadError}</div>}
+      {player && (route === 'home' || route === 'ordini') && event && eventPhase(event) !== 'concluded' && !loading && (
+        <nav className="player-tabs" role="tablist">
+          {([['home', 'La mia piadina'], ['ordini', 'Piadine di tutti']] as const).map(([k, l]) => (
+            <button key={k} role="tab" aria-selected={route === k} className={'player-tab' + (route === k ? ' is-active' : '')} onClick={() => go(k)}>
+              <span className="player-tab-label">
+                {l}{k === 'ordini' && orders.length > 0 && <span className="player-tab-count">{orders.length}</span>}
+              </span>
+              {route === k && <motion.span layoutId="player-tab-pill" className="player-tab-pill" />}
+            </button>
+          ))}
+        </nav>
+      )}
       <main className="main">{body}</main>
     </div>
     </ImagesContext.Provider>

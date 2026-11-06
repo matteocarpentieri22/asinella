@@ -203,3 +203,36 @@
 .send-chev { width: 28px; height: 28px; border-radius: 50%; background: var(--cream-2); display: grid; place-items: center; font-weight: 800; }
 .btn--wa { background: #25d366; border-color: #25d366; color: #fff; box-shadow: 0 4px 12px rgba(37, 211, 102, 0.35); }
 .navbtn--admin { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+/* =====================================================================
+   Giocatori: schede "La mia piadina" / "Piadine di tutti"
+   ===================================================================== */
+.player-tabs {
+  position: sticky; top: calc(57px + var(--safe-t)); z-index: 25;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 10px 14px 0;
+  background: rgba(255, 248, 236, 0.92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  padding: 5px; border-radius: 16px; border: 1px solid var(--line);
+}
+.player-tab { position: relative; border: 0; background: none; min-height: 42px; border-radius: 12px; font-weight: 800; font-size: 0.95rem; color: var(--ink-2); }
+.player-tab.is-active { color: #fff; }
+.player-tab-label { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 6px; }
+.player-tab-pill { position: absolute; inset: 0; border-radius: 12px; background: linear-gradient(180deg, #f79a3a, var(--orange-d)); }
+.player-tab-count {
+  min-width: 22px; height: 22px; padding: 0 6px; border-radius: 99px; display: inline-grid; place-items: center;
+  font-size: 0.75rem; background: var(--orange); color: #fff;
+}
+.player-tab.is-active .player-tab-count { background: #fff; color: var(--orange-d); }
+.orders-sub { margin: 0 0 10px; }
+.orders-sub::first-letter { text-transform: uppercase; }
+.empty-orders { text-align: center; padding: 20px 0; }
+.cta-card {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; margin-bottom: 12px;
+  padding: 14px; border-radius: var(--radius); border: 2px solid var(--orange); background: #fff7ec; color: var(--ink);
+}
+.cta-card > span:first-child { font-size: 1.8rem; }
+.cta-card strong { display: block; font-family: 'Fredoka', sans-serif; font-size: 1.05rem; }
+.cta-card small { color: var(--ink-2); }
+.cta-card span:nth-child(2) { flex: 1; }
+.cta-go { font-size: 1.6rem; color: var(--orange-d); }
+.order-icons { display: flex; margin: 4px 0 2px; }
+.order-icons .ing-icon { width: 26px; height: 26px; margin-right: -6px; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.15)); }
