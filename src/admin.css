@@ -236,3 +236,37 @@
 .cta-go { font-size: 1.6rem; color: var(--orange-d); }
 .order-icons { display: flex; margin: 4px 0 2px; }
 .order-icons .ing-icon { width: 26px; height: 26px; margin-right: -6px; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.15)); }
+
+/* =====================================================================
+   Riquadro unico della serata
+   ===================================================================== */
+.ev-card { padding: 0; overflow: hidden; }
+.ev-top { color: #fff; padding: 16px; background: linear-gradient(135deg, var(--teal), var(--teal-2)); }
+.ev-card--closed .ev-top { background: linear-gradient(135deg, #8a4b1f, var(--orange-d)); }
+.ev-top .eyebrow { color: var(--sun); }
+.ev-top h2 { margin: 2px 0 4px; }
+.ev-top h2::first-letter { text-transform: uppercase; }
+.ev-top p { margin: 0; }
+.ev-count { margin-top: 12px !important; font-size: 0.95rem; }
+.ev-count strong { font-family: 'Fredoka', sans-serif; font-size: 1.5rem; margin-right: 2px; }
+.ev-actions { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 4px; }
+.ev-actions .linkbtn { margin: 0; padding: 4px; }
+.ev-rows { padding: 6px 0 4px; }
+.ev-row { border-top: 1px solid var(--line); }
+.ev-row:first-child { border-top: 0; }
+.ev-row-head {
+  display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 52px;
+  padding: 0 16px; border: 0; background: none; font-weight: 800; font-size: 0.98rem; text-align: left;
+}
+.ev-row-count {
+  margin-left: 8px; min-width: 24px; height: 22px; padding: 0 7px; border-radius: 99px;
+  display: inline-grid; place-items: center; background: var(--cream-2); color: var(--ink-2); font-size: 0.78rem;
+}
+.ev-row-chev { font-size: 1.5rem; color: var(--ink-2); transition: transform 0.2s; }
+.ev-row.is-open .ev-row-chev { transform: rotate(90deg); }
+.ev-row-inner { padding: 0 16px 16px; }
+.ev-row-inner .order { box-shadow: none; border: 1px solid var(--line); }
+.ev-row-inner .summary { margin-bottom: 8px; }
+.ev-row-inner .chips { margin-top: 0; }
+.others summary { cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.others .history:first-of-type { margin-top: 8px; }

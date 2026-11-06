@@ -80,22 +80,44 @@ export function EventTab({ event, ingredients, orders, me, onGoHome, ...c }: Com
       {(!event || phase === 'concluded') && <NewEvent {...c} lastEvent={latest ?? null} />}
 
       {others.length > 0 && (
-        <section className="card">
-          <h3>Altre serate</h3>
+        <details className="card others">
+          <summary><strong>Altre serate</strong> <span className="muted small">{others.length}</span></summary>
           {others.map((e) => <HistoryItem key={e.id} event={e} players={c.players} flash={c.flash} phone={c.phone} />)}
-        </section>
+        </details>
       )}
     </div>
   )
 }
 
-/* ---------------- serata in corso ---------------- */
+/* ---------------- serata in corso: un unico riquadro ---------------- */
+
+function Row({ title, count, children, open, onToggle }: {
+  title: string; count?: number; children: ReactNode; open: boolean; onToggle: () => void
+}) {
+  return (
+    <div className={'ev-row' + (open ? ' is-open' : '')}>
+      <button className="ev-row-head" onClick={onToggle} aria-expanded={open}>
+        <span>{title}{count !== undefined && <span className="ev-row-count">{count}</span>}</span>
+        <span className="ev-row-chev" aria-hidden="true">›</span>
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div className="ev-row-body" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} style={{ overflow: 'hidden' }}>
+            <div className="ev-row-inner">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
 
 function CurrentEvent({ pin, event, phase, now, ingredients, orders, players, catalog, run, flash, onError, reload, phone,
   onOpenSettings, me, onGoHome, nextSlot }: Common & {
   event: EventRow; phase: 'open' | 'closed'; now: number; ingredients: Ingredient[]; orders: Order[]
   me: Player | null; onGoHome: () => void; nextSlot?: ReactNode
 }) {
+  const [openRow, setOpenRow] = useState<string | null>(null)
   const [editIngr, setEditIngr] = useState(false)
   const [sel, setSel] = useState<string[]>([])
   const [date, setDate] = useState(event.event_date)
@@ -104,9 +126,13 @@ function CurrentEvent({ pin, event, phase, now, ingredients, orders, players, ca
   const left = timeLeft(event.deadline, now)
   const dirty = date !== event.event_date || deadline !== toLocalInput(event.deadline)
   const myOrder = me ? orders.find((o) => o.player_id === me.id) : null
-  const total = Math.max(players.length, orders.length)
-  const pct = total ? Math.round((orders.length / total) * 100) : 0
+  const toggle = (k: string) => setOpenRow((v) => (v === k ? null : k))
+  const text = asinellaText(orders, players)
+  const wa = waNumber(phone)
 
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(text); flash('Testo copiato: incollalo dove vuoi') } catch { flash('Copia non riuscita, seleziona il testo a mano') }
+  }
   const closeOrders = () => {
     if (confirm(`Chiudere gli ordini di ${formatEventDate(event.event_date)}?\n\nNessuno potrà più ordinare o modificare la piadina.`)) {
       run(() => adminUpdateEvent(pin, event, event.event_date, event.deadline, true), 'Ordini chiusi')
@@ -115,112 +141,133 @@ function CurrentEvent({ pin, event, phase, now, ingredients, orders, players, ca
 
   return (
     <>
-      {/* riepilogo serata */}
-      <section className={'card event-hero event-hero--' + phase}>
-        <div className="event-hero-top">
-          <div>
-            <span className="eyebrow">{phase === 'open' ? 'Serata in corso' : 'Ordini chiusi'}</span>
-            <h2>{formatEventDate(event.event_date)}</h2>
-            <p className="small">
-              {phase === 'open'
-                ? <>Si ordina fino a {formatDeadline(event.deadline)}</>
-                : <>Scadenza: {formatDeadline(event.deadline)}{event.closed && ' · chiusi a mano'}</>}
-            </p>
+      <section className={'card ev-card ev-card--' + phase}>
+        {/* testata colorata */}
+        <div className="ev-top">
+          <div className="event-hero-top">
+            <div>
+              <span className="eyebrow">{phase === 'open' ? 'Ordini aperti' : 'Ordini chiusi'}</span>
+              <h2>{formatEventDate(event.event_date)}</h2>
+              <p className="small">
+                {phase === 'open'
+                  ? <>Si ordina fino a {formatDeadline(event.deadline)}</>
+                  : <>Scadenza: {formatDeadline(event.deadline)}{event.closed && ' · chiusi a mano'}</>}
+              </p>
+            </div>
+            {phase === 'open' && left && (
+              <div className="event-hero-stat"><strong>{left}</strong><span>alla chiusura</span></div>
+            )}
           </div>
-          {phase === 'open' && left && (
-            <div className="event-hero-stat"><strong>{left}</strong><span>alla chiusura</span></div>
+          <p className="ev-count">
+            <strong>{orders.length}</strong> {orders.length === 1 ? 'piadina ordinata' : 'piadine ordinate'}
+          </p>
+          {me && (
+            <button className="hero-me" onClick={onGoHome}>
+              {myOrder
+                ? <>La tua: <strong>{orderLabel(myOrder)}</strong>{phase === 'open' && ' · modifica →'}</>
+                : phase === 'open' ? <><strong>Non hai ancora ordinato la tua piadina</strong> · ordina →</> : <>Non hai ordinato la tua piadina</>}
+            </button>
           )}
         </div>
-        <div className="hero-progress">
-          <div className="hero-progress-text">
-            <strong>{orders.length}</strong> su {total} {total === 1 ? 'giocatore ha' : 'giocatori hanno'} ordinato
+
+        {/* azioni principali */}
+        {phase === 'closed' && (
+          <div className="ev-actions">
+            {orders.length ? (
+              <>
+                {wa && (
+                  <a className="btn btn--wa btn--block" href={`https://wa.me/${wa}?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer">
+                    Invia ad Asinella su WhatsApp
+                  </a>
+                )}
+                <button className={'btn btn--block' + (wa ? '' : ' btn--primary')} onClick={copy}>Copia testo per Asinella</button>
+                {!wa && <button className="linkbtn small" onClick={onOpenSettings}>Salva il numero di Asinella per inviarlo con un tocco</button>}
+              </>
+            ) : <p className="muted small">Nessuno ha ordinato per questa serata.</p>}
           </div>
-          <div className="hero-progress-bar"><motion.span initial={false} animate={{ width: `${pct}%` }} /></div>
-        </div>
-        {me && (
-          <button className="hero-me" onClick={onGoHome}>
-            {myOrder
-              ? <>La tua piadina: <strong>{orderLabel(myOrder)}</strong>{phase === 'open' && ' · modifica →'}</>
-              : phase === 'open' ? <><strong>Non hai ancora ordinato la tua piadina</strong> · ordina →</> : <>Non hai ordinato la tua piadina</>}
-          </button>
         )}
+
+        {/* dettagli che si aprono */}
+        <div className="ev-rows">
+          <Row title="Ordini" count={orders.length} open={openRow === 'ordini'} onToggle={() => toggle('ordini')}>
+            <OrdersList orders={orders} players={players}
+              onDelete={(o, name) => { if (confirm(`Eliminare l'ordine di ${name}?`)) run(() => adminDeleteOrder(pin, o.id), 'Ordine eliminato') }} />
+          </Row>
+
+          <Row title="Testo per Asinella" open={openRow === 'testo'} onToggle={() => toggle('testo')}>
+            {orders.length ? (
+              <>
+                <pre className="summary">{text}</pre>
+                <button className="btn btn--sm" onClick={copy}>Copia testo</button>
+              </>
+            ) : <p className="muted small">Ancora nessun ordine.</p>}
+          </Row>
+
+          <Row title="Ingredienti" count={ingredients.length} open={openRow === 'ingredienti'} onToggle={() => { toggle('ingredienti'); setEditIngr(false) }}>
+            {!editIngr ? (
+              <>
+                <div className="chips">
+                  {ingredients.map((i) => (
+                    <span key={i.id} className="chip chip--static"><IngredientIcon name={i.name} category={i.category} />{i.name}</span>
+                  ))}
+                  {!ingredients.length && <span className="muted small">Nessun ingrediente</span>}
+                </div>
+                <button className="btn btn--sm" onClick={() => {
+                  setSel(ingredients.map((i) => i.catalog_id).filter(Boolean) as string[])
+                  setEditIngr(true)
+                }}>Modifica ingredienti</button>
+              </>
+            ) : (
+              <>
+                <IngredientPicker pin={pin} catalog={catalog} selected={sel} onChange={setSel} onError={onError} reload={reload} />
+                <div className="row sticky-actions">
+                  <button className="btn" onClick={() => setEditIngr(false)}>Annulla</button>
+                  <button className="btn btn--primary" onClick={async () => {
+                    await run(() => adminSetEventIngredients(pin, event.id, sel), 'Ingredienti aggiornati')
+                    setEditIngr(false)
+                  }}>Salva ({sel.length})</button>
+                </div>
+              </>
+            )}
+          </Row>
+
+          <Row title={phase === 'open' ? 'Modifica serata / chiudi ordini' : 'Riapri / modifica / elimina'}
+            open={openRow === 'modifica'} onToggle={() => toggle('modifica')}>
+            <div className="form">
+              <label>
+                Giorno della serata
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              </label>
+              <label>
+                Ordini aperti fino a
+                <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
+              </label>
+              {dirty && (
+                <button className="btn btn--primary" onClick={() => run(() => adminUpdateEvent(pin, event, date, fromLocalInput(deadline), event.closed), 'Serata aggiornata')}>
+                  Salva
+                </button>
+              )}
+              <div className="row">
+                {event.closed ? (
+                  <button className="btn" onClick={() => run(() => adminUpdateEvent(pin, event, event.event_date, event.deadline, false), 'Ordini riaperti')}>
+                    Riapri ordini
+                  </button>
+                ) : phase === 'open' && (
+                  <button className="btn" onClick={closeOrders}>Chiudi ordini ora</button>
+                )}
+                <button className="btn btn--danger" onClick={() => {
+                  if (confirm('Eliminare questa serata con tutti i suoi ordini?')) run(() => adminDeleteEvent(pin, event.id), 'Serata eliminata')
+                }}>Elimina serata</button>
+              </div>
+              {!event.closed && phase === 'closed' && (
+                <p className="muted small">La scadenza è passata: per riaprire gli ordini sposta più avanti la scadenza.</p>
+              )}
+            </div>
+          </Row>
+        </div>
       </section>
 
       {nextSlot}
-
-      {/* a ordini chiusi l'altra azione principale è mandare l'ordine */}
-      {phase === 'closed' && (
-        <SendToAsinella orders={orders} players={players} flash={flash} phone={phone} onOpenSettings={onOpenSettings} highlight />
-      )}
-
-      <OrdersList orders={orders} players={players}
-        onDelete={(o, name) => { if (confirm(`Eliminare l'ordine di ${name}?`)) run(() => adminDeleteOrder(pin, o.id), 'Ordine eliminato') }} />
-
-      {phase === 'open' && orders.length > 0 && (
-        <SendToAsinella orders={orders} players={players} flash={flash} phone={phone} onOpenSettings={onOpenSettings} collapsible />
-      )}
-
-      {/* ingredienti: una riga compatta */}
-      <section className="card ingr-row-card">
-        {!editIngr ? (
-          <button className="ingr-row" onClick={() => {
-            setSel(ingredients.map((i) => i.catalog_id).filter(Boolean) as string[])
-            setEditIngr(true)
-          }}>
-            <span className="ingr-row-icons">
-              {ingredients.slice(0, 6).map((i) => <IngredientIcon key={i.id} name={i.name} category={i.category} />)}
-            </span>
-            <span className="ingr-row-text"><strong>{ingredients.length} ingredienti</strong><small>Tocca per modificare</small></span>
-            <span className="ingr-row-go">›</span>
-          </button>
-        ) : (
-          <>
-            <div className="card-head"><h3>Ingredienti della serata</h3><span className="muted small">{sel.length} scelti</span></div>
-            <IngredientPicker pin={pin} catalog={catalog} selected={sel} onChange={setSel} onError={onError} reload={reload} />
-            <div className="row sticky-actions">
-              <button className="btn" onClick={() => setEditIngr(false)}>Annulla</button>
-              <button className="btn btn--primary" onClick={async () => {
-                await run(() => adminSetEventIngredients(pin, event.id, sel), 'Ingredienti aggiornati')
-                setEditIngr(false)
-              }}>Salva ({sel.length})</button>
-            </div>
-          </>
-        )}
-      </section>
-
-      <details className="card">
-        <summary><strong>Modifica serata</strong></summary>
-        <div className="form" style={{ marginTop: 12 }}>
-          <label>
-            Giorno della serata
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </label>
-          <label>
-            Ordini aperti fino a
-            <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
-          </label>
-          {dirty && (
-            <button className="btn btn--primary" onClick={() => run(() => adminUpdateEvent(pin, event, date, fromLocalInput(deadline), event.closed), 'Serata aggiornata')}>
-              Salva
-            </button>
-          )}
-          <div className="row">
-            {event.closed ? (
-              <button className="btn" onClick={() => run(() => adminUpdateEvent(pin, event, event.event_date, event.deadline, false), 'Ordini riaperti')}>
-                Riapri ordini
-              </button>
-            ) : phase === 'open' && (
-              <button className="btn" onClick={closeOrders}>Chiudi ordini ora</button>
-            )}
-            <button className="btn btn--danger" onClick={() => {
-              if (confirm('Eliminare questa serata con tutti i suoi ordini?')) run(() => adminDeleteEvent(pin, event.id), 'Serata eliminata')
-            }}>Elimina serata</button>
-          </div>
-          {!event.closed && phase === 'closed' && (
-            <p className="muted small">La scadenza è passata: per riaprire gli ordini sposta più avanti la scadenza.</p>
-          )}
-        </div>
-      </details>
     </>
   )
 }
@@ -336,36 +383,25 @@ function OrdersList({ orders, players, onDelete }: {
   orders: Order[]; players: Player[]; onDelete?: (o: Order, name: string) => void
 }) {
   const byId = useMemo(() => new Map(players.map((p) => [p.id, p])), [players])
-  const ordered = new Set(orders.map((o) => o.player_id))
-  const missing = players.filter((p) => !ordered.has(p.id))
+  if (!orders.length) return <p className="muted small">Ancora nessun ordine.</p>
   return (
-    <section className="card">
-      <div className="card-head"><h3>Ordini</h3><span className="pill">{orders.length} 🫓</span></div>
-      <ul className="order-list">
-        {orders.map((o) => {
-          const p = byId.get(o.player_id)
-          const name = p ? `${p.first_name} ${p.last_name}` : '?'
-          return (
-            <li key={o.id} className="order">
-              <div className="order-avatar">{p ? p.first_name[0] + p.last_name[0] : '?'}</div>
-              <div className="order-body">
-                <div className="order-name">{name}</div>
-                <div className="order-items">{orderLabel(o)}</div>
-                {o.notes && <div className="order-notes">📝 {o.notes}</div>}
-              </div>
-              {onDelete && <button className="iconbtn" aria-label="Elimina ordine" onClick={() => onDelete(o, name)}>×</button>}
-            </li>
-          )
-        })}
-        {!orders.length && <li className="muted small">Ancora nessun ordine.</li>}
-      </ul>
-      {missing.length > 0 && (
-        <details className="missing">
-          <summary>Non hanno ancora ordinato ({missing.length})</summary>
-          <p>{missing.map((p) => `${p.first_name} ${p.last_name}`).join(', ')}</p>
-        </details>
-      )}
-    </section>
+    <ul className="order-list">
+      {orders.map((o) => {
+        const p = byId.get(o.player_id)
+        const name = p ? `${p.first_name} ${p.last_name}` : '?'
+        return (
+          <li key={o.id} className="order">
+            <div className="order-avatar">{p ? p.first_name[0] + p.last_name[0] : '?'}</div>
+            <div className="order-body">
+              <div className="order-name">{name}</div>
+              <div className="order-items">{orderLabel(o)}</div>
+              {o.notes && <div className="order-notes">📝 {o.notes}</div>}
+            </div>
+            {onDelete && <button className="iconbtn" aria-label="Elimina ordine" onClick={() => onDelete(o, name)}>×</button>}
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 
