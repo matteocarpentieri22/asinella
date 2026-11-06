@@ -320,3 +320,14 @@
   position: absolute; top: -5px; right: -2px; min-width: 18px; height: 18px; font-size: 0.68rem;
   border: 2px solid #fff; z-index: 1;
 }
+
+/* azioni nel riquadro in alto */
+.ev-top-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.ev-pill {
+  flex: 1 1 auto; min-height: 40px; padding: 0 12px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.14); color: #fff; font-weight: 800; font-size: 0.85rem; white-space: nowrap;
+}
+.ev-pill.is-on { background: #fff; color: var(--ink); }
+.ev-pill--danger { flex: 0 0 auto; background: rgba(120, 20, 10, 0.25); border-color: rgba(255, 200, 190, 0.45); }
+.ev-edit { background: var(--cream); border-bottom: 1px solid var(--line); }
+.ev-edit .form { padding: 14px 16px; }

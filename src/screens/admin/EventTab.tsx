@@ -121,24 +121,45 @@ function CurrentEvent({ pin, event, phase, now, ingredients, orders, players, ca
   me: Player | null; onGoHome: () => void; onLogin: (p: Player) => void; nextSlot?: ReactNode
 }) {
   const [openRow, setOpenRow] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
   const [editIngr, setEditIngr] = useState(false)
   const [sel, setSel] = useState<string[]>([])
   const [date, setDate] = useState(event.event_date)
   const [deadline, setDeadline] = useState(toLocalInput(event.deadline))
   useEffect(() => { setDate(event.event_date); setDeadline(toLocalInput(event.deadline)) }, [event.event_date, event.deadline])
+  useEffect(() => { setEditing(false) }, [event.id])
   const left = timeLeft(event.deadline, now)
-  const dirty = date !== event.event_date || deadline !== toLocalInput(event.deadline)
   const myOrder = me ? orders.find((o) => o.player_id === me.id) : null
   const toggle = (k: string) => setOpenRow((v) => (v === k ? null : k))
   const text = asinellaText(orders, players)
   const wa = waNumber(phone)
+  const n = orders.length
 
   const copy = async () => {
     try { await navigator.clipboard.writeText(text); flash('Testo copiato: incollalo dove vuoi') } catch { flash('Copia non riuscita, seleziona il testo a mano') }
   }
   const closeOrders = async () => {
-    if (await ask({ title: 'Chiudere gli ordini?', message: `${formatEventDate(event.event_date)}: nessuno potrà più ordinare o modificare la piadina.`, confirm: 'Chiudi ordini', icon: '🔒' })) {
+    if (await ask({ title: 'Chiudere gli ordini?', message: 'Nessuno potrà più ordinare o modificare la piadina. Potrai riaprirli.', confirm: 'Chiudi ordini', icon: '🔒' })) {
       run(() => adminUpdateEvent(pin, event, event.event_date, event.deadline, true), 'Ordini chiusi')
+    }
+  }
+  const reopen = async () => {
+    // se la scadenza è già passata, riapriamo per 2 ore (modificabile con "Modifica")
+    let dl = event.deadline
+    if (new Date(dl).getTime() <= Date.now()) dl = new Date(Date.now() + 2 * 3600e3).toISOString()
+    if (await ask({ title: 'Riaprire gli ordini?', message: `Si potrà ordinare fino a ${formatDeadline(dl)}.`, confirm: 'Riapri', icon: '🔓' })) {
+      run(() => adminUpdateEvent(pin, event, event.event_date, dl, false), 'Ordini riaperti')
+    }
+  }
+  const remove = async () => {
+    if (await ask({
+      title: 'Eliminare la serata?',
+      message: n
+        ? `Verranno cancellati per sempre anche ${n === 1 ? "l'ordine fatto" : `i ${n} ordini fatti`}. Per fermare gli ordini usa invece "Chiudi ordini".`
+        : 'La serata sparirà del tutto.',
+      confirm: 'Elimina', danger: true,
+    })) {
+      run(() => adminDeleteEvent(pin, event.id), 'Serata eliminata')
     }
   }
 
@@ -152,38 +173,66 @@ function CurrentEvent({ pin, event, phase, now, ingredients, orders, players, ca
               <span className="eyebrow">{phase === 'open' ? 'Ordini aperti' : 'Ordini chiusi'}</span>
               <h2>{formatEventDate(event.event_date)}</h2>
               <p className="small">
-                {phase === 'open'
-                  ? <>Si ordina fino a {formatDeadline(event.deadline)}</>
-                  : <>Scadenza: {formatDeadline(event.deadline)}{event.closed && ' · chiusi a mano'}</>}
+                {phase === 'open' ? <>Si ordina fino a {formatDeadline(event.deadline)}</> : <>Scadenza: {formatDeadline(event.deadline)}</>}
               </p>
             </div>
             {phase === 'open' && left && (
               <div className="event-hero-stat"><strong>{left}</strong><span>alla chiusura</span></div>
             )}
           </div>
-          <p className="ev-count">
-            <strong>{orders.length}</strong> {orders.length === 1 ? 'piadina ordinata' : 'piadine ordinate'}
-          </p>
+          <p className="ev-count"><strong>{n}</strong> {n === 1 ? 'piadina ordinata' : 'piadine ordinate'}</p>
           {me && (myOrder || phase === 'closed') && (
             <button className="hero-me" onClick={onGoHome}>
               {myOrder
                 ? <>La tua: <strong>{orderLabel(myOrder)}</strong>{phase === 'open' && ' · modifica →'}</>
-                : phase === 'open' ? <><strong>Non hai ancora ordinato la tua piadina</strong> · ordina →</> : <>Non hai ordinato la tua piadina</>}
+                : <>Non hai ordinato la tua piadina</>}
             </button>
           )}
+          {/* azioni sulla serata */}
+          <div className="ev-top-actions">
+            {phase === 'open'
+              ? <button className="ev-pill" onClick={closeOrders}>🔒 Chiudi ordini</button>
+              : <button className="ev-pill" onClick={reopen}>🔓 Riapri</button>}
+            <button className={'ev-pill' + (editing ? ' is-on' : '')} onClick={() => setEditing((v) => !v)}>✏️ Modifica</button>
+            <button className="ev-pill ev-pill--danger" onClick={remove}>🗑 Elimina</button>
+          </div>
         </div>
 
-        {/* la piadina dell'admin */}
+        {/* modifica giorno e scadenza */}
+        <AnimatePresence initial={false}>
+          {editing && (
+            <motion.div className="ev-edit" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }} style={{ overflow: 'hidden' }}>
+              <div className="form">
+                <label>
+                  Giorno della serata
+                  <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                </label>
+                <label>
+                  Ordini aperti fino a
+                  <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
+                </label>
+                <div className="row">
+                  <button className="btn" onClick={() => setEditing(false)}>Annulla</button>
+                  <button className="btn btn--primary" onClick={async () => {
+                    await run(() => adminUpdateEvent(pin, event, date, fromLocalInput(deadline), event.closed), 'Serata aggiornata')
+                    setEditing(false)
+                  }}>Salva</button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* azioni principali */}
         {phase === 'open' && !myOrder && (
           <div className="ev-actions">
             <MyPiadinaButton me={me} onGoHome={onGoHome} onLogin={onLogin} onError={onError} />
           </div>
         )}
-
-        {/* azioni principali */}
         {phase === 'closed' && (
           <div className="ev-actions">
-            {orders.length ? (
+            {n ? (
               <>
                 {wa && (
                   <a className="btn btn--wa btn--block" href={`https://wa.me/${wa}?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer">
@@ -199,19 +248,21 @@ function CurrentEvent({ pin, event, phase, now, ingredients, orders, players, ca
 
         {/* dettagli che si aprono */}
         <div className="ev-rows">
-          <Row title="Ordini" count={orders.length} open={openRow === 'ordini'} onToggle={() => toggle('ordini')}>
+          <Row title="Ordini" count={n} open={openRow === 'ordini'} onToggle={() => toggle('ordini')}>
             <OrdersList orders={orders} players={players}
               onDelete={async (o, name) => { if (await ask({ title: `Eliminare l'ordine di ${name}?`, confirm: 'Elimina', danger: true })) run(() => adminDeleteOrder(pin, o.id), 'Ordine eliminato') }} />
           </Row>
 
-          <Row title="Testo per Asinella" open={openRow === 'testo'} onToggle={() => toggle('testo')}>
-            {orders.length ? (
-              <>
-                <pre className="summary">{text}</pre>
-                <button className="btn btn--sm" onClick={copy}>Copia testo</button>
-              </>
-            ) : <p className="muted small">Ancora nessun ordine.</p>}
-          </Row>
+          {phase === 'open' && (
+            <Row title="Testo per Asinella" open={openRow === 'testo'} onToggle={() => toggle('testo')}>
+              {n ? (
+                <>
+                  <pre className="summary">{text}</pre>
+                  <button className="btn btn--sm" onClick={copy}>Copia testo</button>
+                </>
+              ) : <p className="muted small">Ancora nessun ordine.</p>}
+            </Row>
+          )}
 
           <Row title="Ingredienti" count={ingredients.length} open={openRow === 'ingredienti'} onToggle={() => { toggle('ingredienti'); setEditIngr(false) }}>
             {!editIngr ? (
@@ -239,40 +290,6 @@ function CurrentEvent({ pin, event, phase, now, ingredients, orders, players, ca
                 </div>
               </>
             )}
-          </Row>
-
-          <Row title={phase === 'open' ? 'Modifica serata / chiudi ordini' : 'Riapri / modifica / elimina'}
-            open={openRow === 'modifica'} onToggle={() => toggle('modifica')}>
-            <div className="form">
-              <label>
-                Giorno della serata
-                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-              </label>
-              <label>
-                Ordini aperti fino a
-                <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
-              </label>
-              {dirty && (
-                <button className="btn btn--primary" onClick={() => run(() => adminUpdateEvent(pin, event, date, fromLocalInput(deadline), event.closed), 'Serata aggiornata')}>
-                  Salva
-                </button>
-              )}
-              <div className="row">
-                {event.closed ? (
-                  <button className="btn" onClick={() => run(() => adminUpdateEvent(pin, event, event.event_date, event.deadline, false), 'Ordini riaperti')}>
-                    Riapri ordini
-                  </button>
-                ) : phase === 'open' && (
-                  <button className="btn" onClick={closeOrders}>Chiudi ordini ora</button>
-                )}
-                <button className="btn btn--danger" onClick={async () => {
-                  if (await ask({ title: 'Eliminare la serata?', message: 'Verranno eliminati anche tutti i suoi ordini.', confirm: 'Elimina', danger: true })) run(() => adminDeleteEvent(pin, event.id), 'Serata eliminata')
-                }}>Elimina serata</button>
-              </div>
-              {!event.closed && phase === 'closed' && (
-                <p className="muted small">La scadenza è passata: per riaprire gli ordini sposta più avanti la scadenza.</p>
-              )}
-            </div>
           </Row>
         </div>
       </section>

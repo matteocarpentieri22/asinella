@@ -79,6 +79,26 @@ export default function Admin({
     )
   }
 
+  // PIN già salvato ma su questo telefono manca il nome: lo chiediamo subito, una volta sola
+  if (!me) {
+    return (
+      <form className="card form admin-login" onSubmit={async (e) => {
+        e.preventDefault()
+        setErr(null)
+        if (nameInput.trim().length < 2) return setErr('Scrivi il tuo nome')
+        try { onLogin(await loginPlayer(nameInput, '')) } catch (e) { setErr((e as Error).message) }
+      }}>
+        <h2>Area admin</h2>
+        <label>
+          Nome
+          <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} autoComplete="given-name" autoCapitalize="words" autoFocus />
+        </label>
+        {err && <p className="error">{err}</p>}
+        <button className="btn btn--primary btn--block">Entra</button>
+      </form>
+    )
+  }
+
   return (
     <GenProvider pin={pin} reload={reload} onError={onError}>
       <div className="admin">
