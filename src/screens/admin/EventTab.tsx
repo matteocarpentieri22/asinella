@@ -466,7 +466,6 @@ function MyPiadinaButton({ me, onGoHome, onLogin, onError }: {
         setBusy(false)
       }
     }}>
-      <p className="small"><strong>Come ti chiami?</strong> Il nome compare nell'ordine per Asinella, come per tutti.</p>
       <div className="my-name-row">
         <input value={first} onChange={(e) => setFirst(e.target.value)} placeholder="Nome" autoComplete="given-name" autoCapitalize="words" autoFocus />
         <input value={last} onChange={(e) => setLast(e.target.value)} placeholder="Cognome" autoComplete="family-name" autoCapitalize="words" />

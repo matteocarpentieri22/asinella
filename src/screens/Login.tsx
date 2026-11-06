@@ -28,8 +28,7 @@ export default function Login({ onLogin }: { onLogin: (p: Player) => void }) {
   return (
     <div className="login">
       <img className="login-logo" src="/logo-256.png" alt="Asinella" width={170} height={140} />
-      <h1>Piadine del giovedì</h1>
-      <p className="muted">Componi la tua piadina, la ordiniamo noi. Niente più gruppo intasato.</p>
+      <h1>Ordine piadine</h1>
       <form className="card form" onSubmit={submit}>
         <label>
           Nome
