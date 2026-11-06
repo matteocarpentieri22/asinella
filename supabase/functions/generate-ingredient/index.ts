@@ -18,7 +18,8 @@ const IMAGE_MODEL = Deno.env.get('GEMINI_IMAGE_MODEL') ?? 'gemini-nano-banana-2.
 const TEXT_MODEL = Deno.env.get('GEMINI_TEXT_MODEL') ?? 'gemini-3.1-flash-lite'
 const API = 'https://generativelanguage.googleapis.com/v1beta'
 const BUCKET = 'ingredient-images'
-const CATEGORIES = ['salumi', 'formaggi', 'verdure', 'salse']
+const CATEGORIES = ['salumi', 'formaggi', 'verdure', 'salse', 'piadina']
+const PIADINA_KEY = '__piadina__'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -42,6 +43,16 @@ const PIECE_HINT: Record<string, string> = {
 }
 
 function stylePrompt(name: string, category: string, hasRefs: boolean) {
+  if (category === 'piadina') {
+    return [
+      'Draw one single empty Italian "piadina romagnola" flatbread, freshly cooked on the griddle, with nothing on it.',
+      'View: exactly top-down (flat lay, camera directly above). The piadina is a perfect circle, centered, fully visible, filling about 92% of the frame.',
+      'Look: pale cream-golden dough, thin and slightly irregular, with many realistic golden-brown and darker toasted spots and small blisters from the griddle, a slightly darker toasted rim, fine flour texture.',
+      'Style: realistic, appetizing hand-painted food illustration with fine detail and natural texture, soft natural light from the top-left, gentle soft shading, no black outlines, no cartoon look.',
+      hasRefs ? 'Match EXACTLY the illustration style, lighting, level of detail and color treatment of the reference images.' : '',
+      'Background: a perfectly flat, uniform, solid pure magenta color (#FF00FF) everywhere around the piadina. No shadow on the background, no gradient, no plate, no board, no props, no text, no watermark.',
+    ].filter(Boolean).join('\n')
+  }
   return [
     `Ingredient: "${name}" (Italian name, category: ${category}).`,
     `Draw ${PIECE_HINT[category]}.`,
@@ -144,7 +155,7 @@ function b64encode(a: Uint8Array) {
 /*  Scontorno dello sfondo magenta                                     */
 /* ------------------------------------------------------------------ */
 
-async function cutout(bytes: Uint8Array): Promise<Uint8Array> {
+async function cutout(bytes: Uint8Array, maxSide = 384): Promise<Uint8Array> {
   const img = await Image.decode(bytes)
   const { width: w, height: h } = img
   const px = img.bitmap // RGBA
@@ -187,9 +198,9 @@ async function cutout(bytes: Uint8Array): Promise<Uint8Array> {
   maxX = Math.min(w - 1, maxX + pad); maxY = Math.min(h - 1, maxY + pad)
   const cropped = img.crop(minX, minY, maxX - minX + 1, maxY - minY + 1)
   const side = Math.max(cropped.width, cropped.height)
-  if (side > 384) {
-    if (cropped.width >= cropped.height) cropped.resize(384, Image.RESIZE_AUTO)
-    else cropped.resize(Image.RESIZE_AUTO, 384)
+  if (side > maxSide) {
+    if (cropped.width >= cropped.height) cropped.resize(maxSide, Image.RESIZE_AUTO)
+    else cropped.resize(Image.RESIZE_AUTO, maxSide)
   }
   return await cropped.encode()
 }
@@ -254,7 +265,7 @@ Deno.serve(async (req) => {
   const { data: isAdmin } = await sb.rpc('admin_check', { p_pin: pin })
   if (!isAdmin) return json({ error: 'PIN admin errato' }, 401)
 
-  const key = nameKey(name)
+  const key = category === 'piadina' ? PIADINA_KEY : nameKey(name)
   await sb.from('ingredient_images').upsert({
     name_key: key, display_name: name, category, status: 'pending', error: null, updated_at: new Date().toISOString(),
   })
@@ -270,7 +281,7 @@ Deno.serve(async (req) => {
     const res = await gemini(IMAGE_MODEL, stylePrompt(name, category, refs.length > 0), refs, true)
     const raw = findImage(res)
     if (!raw) throw new Error('Gemini non ha restituito immagini: ' + findText(res).join(' ').slice(0, 200))
-    const png = await cutout(raw)
+    const png = await cutout(raw, category === 'piadina' ? 900 : 384)
 
     const path = `${slug(key) || 'ingrediente'}-${Date.now()}.png`
     const up = await sb.storage.from(BUCKET).upload(path, png, { contentType: 'image/png', upsert: true })

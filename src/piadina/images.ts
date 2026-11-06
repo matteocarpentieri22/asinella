@@ -16,6 +16,9 @@ export type ImageMap = Map<string, IngredientImage>
 
 export const nameKey = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ')
 
+/** Riga speciale con l'immagine della piadina */
+export const PIADINA_KEY = '__piadina__'
+
 export const ImagesContext = createContext<ImageMap>(new Map())
 
 export function useIngredientImage(name: string) {

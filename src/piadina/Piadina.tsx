@@ -1,6 +1,6 @@
 import { AnimatePresence, animate, motion, useMotionValue, useTransform, type MotionValue } from 'framer-motion'
 import { memo, useContext, useId, useMemo } from 'react'
-import { ImagesContext, nameKey } from './images'
+import { ImagesContext, PIADINA_KEY, nameKey } from './images'
 import type { Category } from '../types'
 import { Piece, kindFor, pieceCount, pieceSize } from './art'
 import { Plate, Ramekins } from './Plate'
@@ -15,6 +15,7 @@ export const Dough = memo(function Dough({
   seed, side, viewBox,
 }: { seed: string; side: 'top' | 'under'; viewBox: string }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '')
+  const piadinaImg = useContext(ImagesContext).get(PIADINA_KEY)?.image_url
   const { edge, spots, specks, blisters } = useMemo(() => {
     const r = rngFrom(seed + side)
     // bordo irregolare
@@ -68,6 +69,18 @@ export const Dough = memo(function Dough({
     })
     return { edge: smoothClosed(pts), spots, specks, blisters }
   }, [seed, side])
+
+  // piadina generata da Gemini: stessa immagine per tutte e due le facce (sotto = specchiata, un filo più scura)
+  if (piadinaImg) {
+    const P = R + 3
+    return (
+      <svg viewBox={viewBox} className="dough" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <image href={piadinaImg} x={C - P} y={C - P} width={P * 2} height={P * 2} preserveAspectRatio="xMidYMid meet"
+          transform={side === 'under' ? `translate(${C * 2} 0) scale(-1 1)` : undefined}
+          style={side === 'under' ? { filter: 'brightness(0.93) saturate(1.05)' } : undefined} />
+      </svg>
+    )
+  }
 
   return (
     <svg viewBox={viewBox} className="dough" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
